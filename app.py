@@ -34,7 +34,7 @@ else:
     UPLOADS_DIR = BASE_DIR / "uploads"
 
 TEMPLATES_DIR = BASE_DIR / "templates"
-SAMPLE_DATA_DIR = BASE_DIR / "sample_data"
+SAMPLE_DATA_DIR = Path("/tmp/sample_data")
 STATIC_DIR = BASE_DIR / "static"
 
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
