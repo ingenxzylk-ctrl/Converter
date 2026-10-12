@@ -26,15 +26,20 @@ from parser import process_document
 
 # Directory setup
 BASE_DIR = Path(__file__).resolve().parent
-UPLOADS_DIR = BASE_DIR / "uploads"
+
+# On serverless (Vercel / Lambda), workspace is read-only; use /tmp for uploads
+if os.environ.get("VERCEL"):
+    UPLOADS_DIR = Path("/tmp/uploads")
+else:
+    UPLOADS_DIR = BASE_DIR / "uploads"
+
 TEMPLATES_DIR = BASE_DIR / "templates"
 SAMPLE_DATA_DIR = BASE_DIR / "sample_data"
-
 STATIC_DIR = BASE_DIR / "static"
 
-UPLOADS_DIR.mkdir(exist_ok=True)
-SAMPLE_DATA_DIR.mkdir(exist_ok=True)
-STATIC_DIR.mkdir(exist_ok=True)
+UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+SAMPLE_DATA_DIR.mkdir(parents=True, exist_ok=True)
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI(title="LabReport Transformer")
 

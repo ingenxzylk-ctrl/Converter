@@ -16,7 +16,6 @@ from PIL import Image
 
 import pdfplumber
 import pypdfium2 as pdfium
-from rapidocr import RapidOCR
 
 from blood_tests_db import (
     find_matching_test,
@@ -25,13 +24,18 @@ from blood_tests_db import (
     BLOOD_TESTS_REGISTRY
 )
 
-# Initialize RapidOCR singleton
-_ocr_engine: Optional[RapidOCR] = None
+# Optional RapidOCR singleton (lazy-loaded for lightweight cloud/serverless deployments)
+_ocr_engine: Optional[Any] = None
 
-def get_ocr_engine() -> RapidOCR:
+def get_ocr_engine() -> Optional[Any]:
     global _ocr_engine
     if _ocr_engine is None:
-        _ocr_engine = RapidOCR()
+        try:
+            from rapidocr import RapidOCR
+            _ocr_engine = RapidOCR()
+        except Exception as e:
+            print(f"[Info] RapidOCR not installed / serverless mode: {e}")
+            return None
     return _ocr_engine
 
 
@@ -716,31 +720,33 @@ def process_single_file(file_path: str, uploads_dir: str) -> Dict[str, Any]:
         # 3. Fallback to RapidOCR with horizontal bounding-box clustering for scanned/image PDFs
         if len(found_tests) < 10:
             ocr = get_ocr_engine()
-            for page_idx in range(min(len(pdf), 25)):
-                safe_stem = re.sub(r'[^a-zA-Z0-9_\-]', '_', path.stem)
-                img_path = os.path.join(uploads_dir, f"{safe_stem}_page_{page_idx + 1}.png")
-                ocr_out = ocr(img_path)
-                meta_ocr, tests_ocr = extract_ocr_clustered_table_records(ocr_out)
-                
-                # Merge metadata
-                for mk, mv in meta_ocr.items():
-                    if mv and not metadata.get(mk):
-                        metadata[mk] = mv
-                metadata["barcodes"] = list(dict.fromkeys(metadata.get("barcodes", []) + meta_ocr.get("barcodes", [])))
-                metadata["source_codes"] = list(dict.fromkeys(metadata.get("source_codes", []) + meta_ocr.get("source_codes", [])))
+            if ocr is not None:
+                for page_idx in range(min(len(pdf), 25)):
+                    safe_stem = re.sub(r'[^a-zA-Z0-9_\-]', '_', path.stem)
+                    img_path = os.path.join(uploads_dir, f"{safe_stem}_page_{page_idx + 1}.png")
+                    ocr_out = ocr(img_path)
+                    meta_ocr, tests_ocr = extract_ocr_clustered_table_records(ocr_out)
+                    
+                    # Merge metadata
+                    for mk, mv in meta_ocr.items():
+                        if mv and not metadata.get(mk):
+                            metadata[mk] = mv
+                    metadata["barcodes"] = list(dict.fromkeys(metadata.get("barcodes", []) + meta_ocr.get("barcodes", [])))
+                    metadata["source_codes"] = list(dict.fromkeys(metadata.get("source_codes", []) + meta_ocr.get("source_codes", [])))
 
-                for k, v in tests_ocr.items():
-                    if k not in found_tests:
-                        found_tests[k] = v
+                    for k, v in tests_ocr.items():
+                        if k not in found_tests:
+                            found_tests[k] = v
 
     elif suffix in [".png", ".jpg", ".jpeg", ".webp"]:
         safe_name = re.sub(r'[^a-zA-Z0-9_\-\.]', '_', path.name)
         preview_images.append(f"/uploads/{safe_name}")
         ocr = get_ocr_engine()
-        ocr_out = ocr(file_path)
-        meta_ocr, tests_ocr = extract_ocr_clustered_table_records(ocr_out)
-        metadata = meta_ocr
-        found_tests.update(tests_ocr)
+        if ocr is not None:
+            ocr_out = ocr(file_path)
+            meta_ocr, tests_ocr = extract_ocr_clustered_table_records(ocr_out)
+            metadata = meta_ocr
+            found_tests.update(tests_ocr)
 
     return {
         "metadata": metadata,

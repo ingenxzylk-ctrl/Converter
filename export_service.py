@@ -5,7 +5,10 @@ from pathlib import Path
 import re
 import base64
 from jinja2 import Environment, FileSystemLoader
-from playwright.sync_api import sync_playwright
+try:
+    from playwright.sync_api import sync_playwright
+except ImportError:
+    sync_playwright = None
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -73,6 +76,9 @@ def generate_zylk_report(patient_data: dict, output_path: str) -> str:
     out_file = Path(output_path)
     out_file.parent.mkdir(parents=True, exist_ok=True)
 
+    if sync_playwright is None:
+        raise RuntimeError("Playwright is not installed in this environment. Use Word export or browser Print to PDF.")
+
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
@@ -127,6 +133,9 @@ def generate_zylk_report_bytes(patient_data: dict) -> bytes:
     )
 
     html_content_resolved = embed_static_images_as_base64(html_content, STATIC_DIR)
+
+    if sync_playwright is None:
+        raise RuntimeError("Playwright is not installed in this environment. Use Word export (.docx) or browser Print to PDF.")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
