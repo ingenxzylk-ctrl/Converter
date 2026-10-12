@@ -5,6 +5,11 @@
       "use": "@vercel/python"
     }
   ],
+  "functions": {
+    "app.py": {
+      "excludeFiles": "{uploads/**,output/**,sample_data/**,**/*.docx,**/*.pdf}"
+    }
+  },
   "routes": [
     {
       "src": "/(.*)",
