@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InGenX Labs - Blood Test Converter</title>
+  <!-- Tailwind CSS & Lucide Icons via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    [x-cloak] { display: none !important; }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col" x-data="labApp()">
+
+  <!-- Top Navigation Bar -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-lg bg-sky-600 flex items-center justify-center text-white font-bold text-xl shadow">
+          🔬
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 leading-tight">InGenX Labs </h1>
+          <p class="text-xs text-sky-600 font-medium">Blood Test Converter</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <button @click="showClinicModal = true" class="inline-flex items-center px-3 py-1.5 border border-slate-300 rounded-md text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm">
+          <i data-lucide="settings" class="w-4 h-4 mr-1.5 text-slate-500"></i> Clinic Template Settings
+        </button>
+
+        <button @click="loadSampleData()" :disabled="isLoading" class="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-semibold text-sky-700 bg-sky-50 border border-sky-200 hover:bg-sky-100 transition">
+          <i data-lucide="sparkles" class="w-4 h-4 mr-1.5 text-sky-600"></i> Try Sample Blood Report
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col space-y-6">
+
+    <!-- Upload & Status Banner -->
+    <div class="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        
+        <!-- Drag & Drop Area -->
+        <div 
+          @dragover.prevent="isDragging = true"
+          @dragleave.prevent="isDragging = false"
+          @drop.prevent="handleDrop($event)"
+          :class="isDragging ? 'border-sky-500 bg-sky-50' : 'border-slate-300 hover:border-sky-400 bg-slate-50'"
+          class="flex-1 border-2 border-dashed rounded-lg p-5 flex items-center justify-center transition cursor-pointer"
+          @click="$refs.fileInput.click()">
+          <input type="file" x-ref="fileInput" @change="handleFileSelect($event)" accept=".pdf,image/*" multiple class="hidden">
+          <div class="text-center">
+            <i data-lucide="upload-cloud" class="w-8 h-8 mx-auto text-sky-600 mb-1"></i>
+            <span class="text-sm font-semibold text-slate-700">Upload 3rd-Party Lab Report(s)</span>
+            <span class="text-xs text-slate-500 block">PDFs (Digital or Scanned) or Images (JPG, PNG) &bull; Select single or multiple files</span>
+          </div>
+        </div>
+
+        <!-- Processing Feedback -->
+        <div class="md:w-80 flex flex-col justify-center bg-slate-50 rounded-lg p-4 border border-slate-200 text-xs space-y-2">
+          <div class="flex items-center justify-between font-semibold text-slate-700">
+            <span>Processing Status:</span>
+            <span :class="isLoading ? 'text-amber-600 animate-pulse' : 'text-emerald-600'" x-text="statusText"></span>
+          </div>
+          <div class="text-slate-500 leading-relaxed" x-text="statusDetail"></div>
+          <template x-if="extractionMode">
+            <div class="inline-flex items-center text-sky-700 font-semibold bg-sky-100 px-2 py-0.5 rounded w-max">
+              <span x-text="'Engine: ' + extractionMode"></span>
+            </div>
+          </template>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Empty State Prompt -->
+    <template x-if="!hasData && !isLoading">
+      <div class="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-sm">
+        <div class="w-16 h-16 bg-sky-50 rounded-full flex items-center justify-center mx-auto mb-4 text-sky-600">
+          <i data-lucide="file-text" class="w-8 h-8"></i>
+        </div>
+        <h3 class="text-lg font-bold text-slate-900 mb-1">No Document Loaded Yet</h3>
+        <p class="text-sm text-slate-500 max-w-md mx-auto mb-6">
+          Upload a lab report from any third-party lab (CBC, Lipid profile, Liver/Kidney function) or click below to load a sample.
+        </p>
+        <button @click="loadSampleData()" class="inline-flex items-center px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-sm font-semibold shadow transition">
+          <i data-lucide="play" class="w-4 h-4 mr-2"></i> Load Instant Demo Sample
+        </button>
+      </div>
+    </template>
+
+    <!-- Side-by-Side Verification Screen -->
+    <template x-if="hasData">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- LEFT PANEL: Original Document Preview (5 cols) -->
+        <div class="lg:col-span-5 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[820px] overflow-hidden">
+          <div class="px-4 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="file-check" class="w-4 h-4 text-slate-500"></i>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Original Document</span>
+            </div>
+            <div class="flex items-center space-x-2" x-if="previewImages.length > 1">
+              <button @click="prevPage()" :disabled="currentPage === 0" class="p-1 rounded hover:bg-slate-200 disabled:opacity-30">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+              </button>
+              <span class="text-xs text-slate-600 font-medium" x-text="`Page ${currentPage + 1} of ${previewImages.length}`"></span>
+              <button @click="nextPage()" :disabled="currentPage >= previewImages.length - 1" class="p-1 rounded hover:bg-slate-200 disabled:opacity-30">
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="flex-1 overflow-auto p-4 bg-slate-200 flex items-center justify-center">
+            <template x-if="previewImages.length > 0">
+              <img :src="previewImages[currentPage]" alt="Document Page" class="max-w-full shadow-md rounded border border-slate-300">
+            </template>
+            <template x-if="previewImages.length === 0">
+              <div class="text-center text-slate-400">
+                <i data-lucide="image" class="w-12 h-12 mx-auto mb-2 opacity-40"></i>
+                <p class="text-xs">No preview image available</p>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- RIGHT PANEL: Extracted Data & Editable Verification (7 cols) -->
+        <div class="lg:col-span-7 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col h-[820px] overflow-hidden">
+          
+          <div class="px-5 py-3 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-700">Extracted Data Verification</span>
+            </div>
+            <span class="text-xs text-slate-500 font-medium">Verify & edit values before generating template</span>
+          </div>
+
+          <div class="flex-1 overflow-y-auto p-5 space-y-6">
+
+            <!-- Patient Metadata Box -->
+            <div class="bg-slate-50 rounded-lg p-4 border border-slate-200">
+              <h3 class="text-xs font-bold uppercase text-slate-600 tracking-wider mb-3 flex items-center">
+                <i data-lucide="user" class="w-3.5 h-3.5 mr-1.5 text-sky-600"></i> Patient Demographics
+              </h3>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <label class="block text-slate-500 font-semibold mb-1">Patient Name</label>
+                  <input type="text" x-model="metadata.patient_name" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded font-semibold text-slate-800 focus:ring-1 focus:ring-sky-500 focus:border-sky-500">
+                </div>
+                <div>
+                  <label class="block text-slate-500 font-semibold mb-1">Age</label>
+                  <input type="text" x-model="metadata.age_gender" placeholder="e.g. 24 or 24Y/M" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-slate-800 focus:ring-1 focus:ring-sky-500">
+                </div>
+                <div>
+                  <label class="block text-slate-500 font-semibold mb-1">Template Patient Image</label>
+                  <select x-model="metadata.gender" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded font-bold text-sky-700 focus:ring-1 focus:ring-sky-500">
+                    <option value="FEMALE">👩 Female (Woman in Saree)</option>
+                    <option value="MALE">👨 Male (Man in Green T-shirt)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-slate-500 font-semibold mb-1">Sample ID / Barcode</label>
+                  <input type="text" x-model="metadata.sample_id" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded font-mono text-slate-800 focus:ring-1 focus:ring-sky-500">
+                </div>
+                <div>
+                  <label class="block text-slate-500 font-semibold mb-1">Collection Date</label>
+                  <input type="text" x-model="metadata.collection_date" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-slate-800 focus:ring-1 focus:ring-sky-500">
+                </div>
+                <div>
+                  <label class="block text-slate-500 font-semibold mb-1">Report Date</label>
+                  <input type="text" x-model="metadata.report_date" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-slate-800 focus:ring-1 focus:ring-sky-500">
+                </div>
+                <div>
+                  <label class="block text-slate-500 font-semibold mb-1">Phone</label>
+                  <input type="text" x-model="metadata.phone" placeholder="e.g. +91 98765 43210" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-slate-800 focus:ring-1 focus:ring-sky-500">
+                </div>
+                <div>
+                  <label class="block text-slate-500 font-semibold mb-1">Pincode</label>
+                  <input type="text" x-model="metadata.pincode" placeholder="e.g. 627007" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-slate-800 focus:ring-1 focus:ring-sky-500">
+                </div>
+                <div>
+                  <label class="block text-slate-500 font-semibold mb-1">Specimen</label>
+                  <input type="text" x-model="metadata.specimen" placeholder="Blood Test" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-slate-800 focus:ring-1 focus:ring-sky-500">
+                </div>
+                <div class="sm:col-span-3">
+                  <label class="block text-slate-500 font-semibold mb-1">Test Package / Title</label>
+                  <input type="text" x-model="metadata.test_type" @input="onTestTypeChange()" placeholder="e.g. Mens Hairfall Screening Advanced / Women Hairfall Screening Advanced" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-slate-800 focus:ring-1 focus:ring-sky-500">
+                </div>
+                <div class="sm:col-span-3">
+                  <label class="block text-slate-500 font-semibold mb-1">Patient Address</label>
+                  <input type="text" x-model="metadata.address" placeholder="e.g. INGENX LABS Pvt Ltd., P18, Shifa Golden City, Tirunelveli" class="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-slate-800 focus:ring-1 focus:ring-sky-500">
+                </div>
+              </div>
+            </div>
+
+            <!-- Test Results Table -->
+            <div>
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-xs font-bold uppercase text-slate-600 tracking-wider flex items-center">
+                  <i data-lucide="flask-conical" class="w-3.5 h-3.5 mr-1.5 text-sky-600"></i> Test Results (<span x-text="tests.length"></span>)
+                </h3>
+                <button @click="addNewTestRow()" class="text-xs text-sky-600 font-bold hover:text-sky-800 inline-flex items-center">
+                  <i data-lucide="plus" class="w-3.5 h-3.5 mr-1"></i> Add Row
+                </button>
+              </div>
+
+              <div class="border border-slate-200 rounded-lg overflow-hidden">
+                <table class="w-full text-left text-xs border-collapse">
+                  <thead class="bg-slate-100 text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                    <tr>
+                      <th class="p-2.5">Investigation</th>
+                      <th class="p-2.5 w-24 text-center">Value</th>
+                      <th class="p-2.5 w-20">Unit</th>
+                      <th class="p-2.5 w-28">Ref Interval</th>
+                      <th class="p-2.5 w-20 text-center">Flag</th>
+                      <th class="p-2.5 w-10 text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-200">
+                    <template x-for="(test, index) in tests" :key="index">
+                      <tr class="hover:bg-slate-50 transition">
+                        <!-- Parameter & Category -->
+                        <td class="p-2.5">
+                          <input type="text" x-model="test.parameter" class="w-full font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-sky-500 focus:bg-white px-1 py-0.5 rounded">
+                          <span class="text-[10px] text-slate-400 block px-1" x-text="test.category"></span>
+                        </td>
+                        <!-- Numeric Observed Value -->
+                        <td class="p-2.5 text-center">
+                          <input type="text" x-model="test.value" @input="updateFlag(test)" 
+                            :class="{
+                              'text-red-600 font-extrabold border-red-300 bg-red-50': test.flag === 'HIGH',
+                              'text-blue-600 font-extrabold border-blue-300 bg-blue-50': test.flag === 'LOW',
+                              'text-slate-900 border-slate-300 bg-white': test.flag !== 'HIGH' && test.flag !== 'LOW'
+                            }"
+                            class="w-20 text-center font-bold px-1.5 py-1 border rounded focus:ring-1 focus:ring-sky-500 transition">
+                        </td>
+                        <!-- Unit -->
+                        <td class="p-2.5">
+                          <input type="text" x-model="test.unit" class="w-full text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-sky-500 focus:bg-white px-1 py-0.5 rounded">
+                        </td>
+                        <!-- Reference Range -->
+                        <td class="p-2.5">
+                          <input type="text" x-model="test.ref_range" @input="updateFlag(test)" class="w-full text-slate-600 bg-transparent border-b border-transparent hover:border-slate-300 focus:border-sky-500 focus:bg-white px-1 py-0.5 rounded">
+                        </td>
+                        <!-- Flag Badge -->
+                        <td class="p-2.5 text-center">
+                          <span 
+                            :class="{
+                              'bg-emerald-100 text-emerald-800': test.flag === 'NORMAL',
+                              'bg-red-100 text-red-800 font-bold': test.flag === 'HIGH',
+                              'bg-blue-100 text-blue-800 font-bold': test.flag === 'LOW'
+                            }"
+                            class="px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider inline-block"
+                            x-text="test.flag">
+                          </span>
+                          <template x-if="test.is_phase_dependent">
+                            <span class="block text-[9px] text-amber-600 font-semibold mt-0.5" title="Cycle phase dependent">Cycle Phase</span>
+                          </template>
+                        </td>
+                        <!-- Delete Action -->
+                        <td class="p-2.5 text-center">
+                          <button @click="removeTestRow(index)" class="text-slate-400 hover:text-red-600 transition p-1">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                          </button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Action Bar -->
+          <div class="px-5 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
+            <span class="text-xs text-slate-500 font-medium">Ready to format with your laboratory template</span>
+            <div class="flex items-center space-x-3">
+              <button @click="saveToCloudDatabase()" :disabled="savingDb" class="inline-flex items-center px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold shadow-sm transition disabled:opacity-50">
+                <i data-lucide="database" class="w-4 h-4 mr-1.5"></i>
+                <span x-text="savingDb ? 'Saving to Cloud...' : 'Save to Supabase'"></span>
+              </button>
+
+              <button @click="previewBrandedReport()" class="inline-flex items-center px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-bold shadow-sm transition">
+                <i data-lucide="external-link" class="w-4 h-4 mr-1.5"></i> Open Branded Preview
+              </button>
+
+              <!-- Format Download Dropdown -->
+              <div class="relative" x-data="{ open: false }">
+                <div class="inline-flex rounded-lg shadow-sm overflow-hidden border border-emerald-600">
+                  <!-- Primary PDF download -->
+                  <button @click="downloadOfficialPdf()" :disabled="exportingPdf || exportingWord"
+                    class="inline-flex items-center px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition">
+                    <i data-lucide="download" class="w-4 h-4 mr-1.5"></i>
+                    <span x-text="exportingPdf ? 'Exporting PDF...' : 'Download PDF'"></span>
+                  </button>
+                  <!-- Format selector toggle -->
+                  <button @click="open = !open" :disabled="exportingPdf || exportingWord"
+                    class="inline-flex items-center px-2 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold border-l border-emerald-500 transition">
+                    <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+
+                <!-- Dropdown Menu -->
+                <div x-show="open" @click.away="open = false" x-cloak
+                  class="absolute right-0 bottom-full mb-1 w-44 bg-white border border-slate-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                  <button @click="downloadOfficialPdf(); open = false" :disabled="exportingPdf"
+                    class="w-full flex items-center px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
+                    <i data-lucide="file-text" class="w-4 h-4 mr-2 text-red-500"></i>
+                    Download as PDF
+                  </button>
+                  <div class="border-t border-slate-100"></div>
+                  <button @click="downloadOfficialWord(); open = false" :disabled="exportingWord"
+                    class="w-full flex items-center px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition">
+                    <i data-lucide="file" class="w-4 h-4 mr-2 text-blue-500"></i>
+                    <span x-text="exportingWord ? 'Exporting Word...' : 'Download as Word'"></span>
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </template>
+
+  </main>
+
+  <!-- Clinic Template Settings Modal -->
+  <div x-show="showClinicModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-4" @click.away="showClinicModal = false">
+      <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+        <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center">
+          <i data-lucide="building" class="w-4 h-4 mr-2 text-sky-600"></i> Your Clinic Branding & Letterhead
+        </h3>
+        <button @click="showClinicModal = false" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-semibold text-slate-600 mb-1">Laboratory / Hospital Name</label>
+          <input type="text" x-model="clinic.name" class="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-sky-500">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-600 mb-1">Tagline</label>
+          <input type="text" x-model="clinic.tagline" class="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-sky-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Logo Initials / Abbr</label>
+            <input type="text" x-model="clinic.logo_abbr" class="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-sky-500">
+          </div>
+          <div>
+            <label class="block font-semibold text-slate-600 mb-1">Phone Number</label>
+            <input type="text" x-model="clinic.phone" class="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-sky-500">
+          </div>
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-600 mb-1">Clinic Address</label>
+          <input type="text" x-model="clinic.address" class="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-sky-500">
+        </div>
+        <div>
+          <label class="block font-semibold text-slate-600 mb-1">Email Address</label>
+          <input type="email" x-model="clinic.email" class="w-full px-3 py-2 border border-slate-300 rounded focus:ring-1 focus:ring-sky-500">
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-200 flex justify-end">
+        <button @click="showClinicModal = false" class="px-4 py-2 bg-sky-600 text-white rounded text-xs font-bold hover:bg-sky-700 transition">
+          Save Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase Cloud Save Success Modal -->
+  <div x-show="showDbSuccessModal" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+       x-transition:enter="transition ease-out duration-300"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-200"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0">
+    <div class="bg-white rounded-2xl border border-slate-100 shadow-2xl max-w-md w-full p-6 text-center space-y-4"
+         @click.away="showDbSuccessModal = false"
+         x-transition:enter="transition ease-out duration-300"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-200"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95">
+
+      <!-- Success Icon with Glowing Rings -->
+      <div class="mx-auto w-16 h-16 rounded-full bg-emerald-50 border-4 border-emerald-100 flex items-center justify-center text-emerald-600 shadow-inner">
+        <i data-lucide="check-circle-2" class="w-8 h-8 stroke-[2.5]"></i>
+      </div>
+
+      <!-- Header Title -->
+      <div>
+        <h3 class="text-lg font-black text-slate-900 tracking-tight">Saved to Supabase!</h3>
+        <p class="text-xs text-slate-500 mt-1">Patient record &amp; test parameters synchronized successfully.</p>
+      </div>
+
+      <!-- Details Summary Card -->
+      <div class="bg-slate-50 rounded-xl p-4 border border-slate-200/80 text-left text-xs space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500 font-semibold">Patient Name:</span>
+          <span class="font-extrabold text-slate-900 text-sm" x-text="dbSaveResult.patient_name"></span>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500 font-semibold">Gender &amp; Category:</span>
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold"
+                :class="dbSaveResult.gender === 'MALE' ? 'bg-sky-100 text-sky-800 border border-sky-200' : 'bg-rose-100 text-rose-800 border border-rose-200'">
+            <i data-lucide="user" class="w-3 h-3 mr-1"></i>
+            <span x-text="dbSaveResult.gender"></span>
+          </span>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500 font-semibold">Target Database View:</span>
+          <span class="font-mono font-bold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200" x-text="dbSaveResult.view_name"></span>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500 font-semibold">Total Biomarkers:</span>
+          <span class="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200" x-text="`${dbSaveResult.total_tests} Tests Extracted`"></span>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-slate-500 font-semibold">Saved Time (IST):</span>
+          <span class="font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded border border-teal-200" x-text="dbSaveResult.saved_time_ist || 'Just now'"></span>
+        </div>
+
+        <div class="pt-2 border-t border-slate-200">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-slate-500 font-semibold text-[11px]">Database Record UUID:</span>
+            <button @click="copyRecordId()" class="text-[11px] font-bold text-sky-600 hover:text-sky-800 flex items-center transition">
+              <i data-lucide="copy" class="w-3 h-3 mr-1"></i>
+              <span x-text="copiedId ? 'Copied!' : 'Copy ID'"></span>
+            </button>
+          </div>
+          <div class="font-mono text-[10.5px] bg-slate-100 text-slate-700 p-2 rounded border border-slate-200 select-all break-all" x-text="dbSaveResult.id"></div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="pt-2">
+        <button @click="showDbSuccessModal = false" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-lg transition flex items-center justify-center">
+          <i data-lucide="check" class="w-4 h-4 mr-1.5"></i> Done
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    function labApp() {
+      return {
+        isLoading: false,
+        isDragging: false,
+        hasData: false,
+        statusText: 'Idle',
+        statusDetail: 'Upload a 3rd-party lab report or click "Try Sample" to begin.',
+        extractionMode: '',
+        previewImages: [],
+        currentPage: 0,
+        showClinicModal: false,
+        showDbSuccessModal: false,
+        exportingPdf: false,
+        exportingWord: false,
+        savingDb: false,
+        copiedId: false,
+        dbSaveResult: {
+          patient_name: '',
+          gender: '',
+          total_tests: 0,
+          id: '',
+          view_name: '',
+          saved_time_ist: ''
+        },
+
+        // Custom Clinic Branding
+        clinic: {
+          name: 'Ingenx Labs Pvt Ltd',
+          tagline: 'Healthcare Diagnostics & Wellness Solutions',
+          address: 'INGENX LABS Pvt Ltd, P18, Shifa Golden City, Tirunelveli. - 627007',
+          phone: ' +91 98943 77521',
+          email: ' customercare@zylkhealth.com'
+        },
+
+        // Extracted Patient Information
+        metadata: {
+          patient_name: '',
+          age_gender: '',
+          gender: 'FEMALE',
+          sample_id: '',
+          referred_by: '',
+          collection_date: '',
+          report_date: '',
+          specimen: 'Blood Test',
+          pincode: '',
+          address: '',
+          phone: '',
+          test_type: ''
+        },
+
+        // Extracted Test Results
+        tests: [],
+
+        init() {
+          lucide.createIcons();
+        },
+
+        nextPage() {
+          if (this.currentPage < this.previewImages.length - 1) {
+            this.currentPage++;
+          }
+        },
+
+        prevPage() {
+          if (this.currentPage > 0) {
+            this.currentPage--;
+          }
+        },
+
+        handleDrop(event) {
+          this.isDragging = false;
+          const files = event.dataTransfer.files;
+          if (files && files.length > 0) {
+            this.uploadFiles(files);
+          }
+        },
+
+        handleFileSelect(event) {
+          const files = event.target.files;
+          if (files && files.length > 0) {
+            this.uploadFiles(files);
+          }
+        },
+
+        async uploadFiles(fileList) {
+          this.isLoading = true;
+          const count = fileList.length;
+          this.statusText = 'Analyzing Document(s)...';
+          this.statusDetail = `Parsing ${count} file(s) using local OCR / table extractor...`;
+
+          const formData = new FormData();
+          for (let i = 0; i < count; i++) {
+            formData.append('files', fileList[i]);
+          }
+
+          try {
+            const resp = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData
+            });
+
+            if (!resp.ok) {
+              const errJson = await resp.json().catch(() => ({}));
+              throw new Error(errJson.detail || resp.statusText);
+            }
+
+            const data = await resp.json();
+            this.populateData(data);
+          } catch (err) {
+            alert('Error processing file(s): ' + err.message);
+            this.statusText = 'Error';
+            this.statusDetail = err.message;
+          } finally {
+            this.isLoading = false;
+            this.$nextTick(() => lucide.createIcons());
+          }
+        },
+
+        async loadSampleData() {
+          this.isLoading = true;
+          this.statusText = 'Loading Sample...';
+          this.statusDetail = 'Loading pre-configured clinical blood test report...';
+
+          try {
+            const resp = await fetch('/api/sample');
+            const data = await resp.json();
+            this.populateData(data);
+          } catch (err) {
+            alert('Failed to load sample: ' + err.message);
+          } finally {
+            this.isLoading = false;
+            this.$nextTick(() => lucide.createIcons());
+          }
+        },
+
+        populateData(data) {
+          this.hasData = true;
+          this.extractionMode = data.extraction_mode || 'Local PDF Parser';
+          this.previewImages = data.preview_images || [];
+          this.currentPage = 0;
+          this.metadata = Object.assign(this.metadata, data.metadata || {});
+
+          // Standardize specimen to Blood Test
+          if (!this.metadata.specimen || this.metadata.specimen.includes('Serum; whole blood')) {
+            this.metadata.specimen = 'Blood Test';
+          }
+
+          // Auto-detect gender & clean title for template
+          const rawTest = (this.metadata.test_type || '').toUpperCase();
+          const ageGen = (this.metadata.age_gender || '').toUpperCase();
+          const gen = (this.metadata.gender || '').toUpperCase();
+
+          if (/\b(MEN|MENS|MALE|MALES)\b/.test(rawTest) || /\b(MALE)\b|\/M\b/.test(ageGen) || gen === 'MALE') {
+            this.metadata.gender = 'MALE';
+            if (rawTest.includes('HAIRFALL') || rawTest.includes('JAANCH')) {
+              this.metadata.test_type = 'Mens Hairfall Screening Advanced';
+            }
+          } else if (/\b(WOMEN|WOMENS|FEMALE|FEMALES)\b/.test(rawTest) || /\b(FEMALE)\b|\/F\b/.test(ageGen) || gen === 'FEMALE') {
+            this.metadata.gender = 'FEMALE';
+            if (rawTest.includes('HAIRFALL') || rawTest.includes('JAANCH')) {
+              this.metadata.test_type = 'Women Hairfall Screening Advanced';
+            }
+          }
+
+          this.tests = data.tests || [];
+          this.tests.forEach(t => this.updateFlag(t));
+          this.statusText = 'Ready';
+          this.statusDetail = `Successfully parsed ${this.tests.length} blood test parameters. Review and modify as needed.`;
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        onTestTypeChange() {
+          const t = (this.metadata.test_type || '').toUpperCase();
+          if (/\b(WOMEN|WOMENS|FEMALE)\b/.test(t)) {
+            this.metadata.gender = 'FEMALE';
+          } else if (/\b(MEN|MENS|MALE)\b/.test(t)) {
+            this.metadata.gender = 'MALE';
+          }
+        },
+
+        addNewTestRow() {
+          const newRow = {
+            category: 'General Hematology',
+            parameter: 'Custom Test Parameter',
+            value: '0.0',
+            unit: 'mg/dL',
+            ref_range: '0.0 - 10.0',
+            flag: 'NORMAL',
+            method: 'Automated'
+          };
+          this.updateFlag(newRow);
+          this.tests.push(newRow);
+          this.$nextTick(() => lucide.createIcons());
+        },
+
+        removeTestRow(index) {
+          this.tests.splice(index, 1);
+        },
+
+        updateFlag(test) {
+          // Dynamic recalculation of flag with regex number extraction
+          if (!test) return;
+          const valClean = (test.value || '').toString().trim();
+          if (!valClean || ['—', '-', 'None'].includes(valClean)) {
+            test.flag = 'NORMAL';
+            return;
+          }
+          const matchVal = valClean.match(/([0-9]+(?:\.[0-9]+)?)/);
+          if (!matchVal) {
+            test.flag = 'NORMAL';
+            return;
+          }
+          const val = parseFloat(matchVal[1]);
+
+          const rangeStr = (test.ref_range || '').replace(/[–—]/g, '-').trim();
+          
+          // Match min - max
+          const matchRange = rangeStr.match(/([0-9]+(?:\.[0-9]+)?)\s*-\s*([0-9]+(?:\.[0-9]+)?)/);
+          if (matchRange) {
+            const min = parseFloat(matchRange[1]);
+            const max = parseFloat(matchRange[2]);
+            if (val > max) test.flag = 'HIGH';
+            else if (val < min) test.flag = 'LOW';
+            else test.flag = 'NORMAL';
+            return;
+          }
+
+          // Match < max
+          const matchLt = rangeStr.match(/<\s*([0-9]+(?:\.[0-9]+)?)/);
+          if (matchLt) {
+            const max = parseFloat(matchLt[1]);
+            if (val > max) test.flag = 'HIGH';
+            else test.flag = 'NORMAL';
+            return;
+          }
+
+          // Match > min
+          const matchGt = rangeStr.match(/>\s*([0-9]+(?:\.[0-9]+)?)/);
+          if (matchGt) {
+            const min = parseFloat(matchGt[1]);
+            if (val < min) test.flag = 'LOW';
+            else test.flag = 'NORMAL';
+            return;
+          }
+
+          test.flag = 'NORMAL';
+        },
+
+        async previewBrandedReport() {
+          // Send current state to render and open
+          try {
+            const payload = {
+              clinic: this.clinic,
+              metadata: this.metadata,
+              tests: this.tests
+            };
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/preview';
+            form.target = '_blank';
+
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'data';
+            input.value = JSON.stringify(payload);
+            form.appendChild(input);
+
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+          } catch (err) {
+            alert('Failed to launch report preview: ' + err.message);
+          }
+        },
+
+        async downloadOfficialPdf() {
+          this.exportingPdf = true;
+          try {
+            const payload = {
+              clinic: this.clinic,
+              metadata: this.metadata,
+              tests: this.tests
+            };
+
+            const resp = await fetch('/api/export-pdf', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!resp.ok) {
+              const err = await resp.json().catch(() => ({}));
+              throw new Error(err.detail || 'PDF generation failed on server');
+            }
+
+            const blob = await resp.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            const patientName = (this.metadata.patient_name || 'Patient').replace(/[^a-zA-Z0-9_-]/g, '_');
+            a.download = `Diagnostic_Report_${patientName}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(blobUrl);
+          } catch (err) {
+            alert('PDF Export failed: ' + err.message);
+          } finally {
+            this.exportingPdf = false;
+          }
+        },
+
+        async downloadOfficialWord() {
+          this.exportingWord = true;
+          try {
+            const payload = {
+              clinic: this.clinic,
+              metadata: this.metadata,
+              tests: this.tests
+            };
+
+            const resp = await fetch('/api/export-word', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            if (!resp.ok) {
+              const err = await resp.json().catch(() => ({}));
+              throw new Error(err.detail || 'Word generation failed on server');
+            }
+
+            const blob = await resp.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            const patientName = (this.metadata.patient_name || 'Patient').replace(/[^a-zA-Z0-9_-]/g, '_');
+            a.download = `Diagnostic_Report_${patientName}.docx`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(blobUrl);
+          } catch (err) {
+            alert('Word Export failed: ' + err.message);
+          } finally {
+            this.exportingWord = false;
+          }
+        },
+
+        async saveToCloudDatabase() {
+          this.savingDb = true;
+          try {
+            const payload = {
+              clinic: this.clinic,
+              metadata: this.metadata,
+              tests: this.tests
+            };
+
+            const resp = await fetch('/api/save-to-database', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            const data = await resp.json();
+            if (resp.ok && data.status === 'success') {
+              this.dbSaveResult = {
+                patient_name: data.patient_name || this.metadata.patient_name || 'Patient',
+                gender: data.gender || this.metadata.gender || 'UNKNOWN',
+                total_tests: data.total_tests || this.tests.length,
+                id: data.id || 'N/A',
+                saved_time_ist: data.saved_time_ist ? `${data.saved_time_ist} (IST)` : 'Just now',
+                view_name: (data.gender || this.metadata.gender) === 'MALE' ? 'male_reports' : 'female_reports'
+              };
+              this.showDbSuccessModal = true;
+              this.$nextTick(() => {
+                if (window.lucide) {
+                  lucide.createIcons();
+                }
+              });
+            } else {
+              alert('⚠️ Failed to save to Supabase:\n' + (data.message || JSON.stringify(data)));
+            }
+          } catch (err) {
+            alert('❌ Network/Server error: ' + err.message);
+          } finally {
+            this.savingDb = false;
+          }
+        },
+
+        copyRecordId() {
+          if (!this.dbSaveResult.id) return;
+          navigator.clipboard.writeText(this.dbSaveResult.id);
+          this.copiedId = true;
+          setTimeout(() => { this.copiedId = false; }, 2000);
+        }
+
+      }
+    }
+  </script>
+</body>
+</html>

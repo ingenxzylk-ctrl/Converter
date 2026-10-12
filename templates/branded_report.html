@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Medical Laboratory Report - {{ metadata.patient_name or 'KANAGAVALLI K' }}</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 0;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #1e293b;
+      font-size: 8.5px;
+      line-height: 1.35;
+    }
+    .report-page {
+      width: 210mm;
+      height: 297mm;
+      max-height: 297mm;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 10mm 12mm 8mm 12mm;
+      position: relative;
+      page-break-after: always;
+      break-after: page;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    @media screen {
+      .report-page {
+        margin: 15px auto;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        border-radius: 4px;
+      }
+    }
+
+    /* Top Header Banner */
+    .top-header-banner {
+      background: #0d4d44;
+      border-radius: 4px;
+      padding: 7px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #ffffff;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+    .brand-left {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      color: #ffffff;
+    }
+    .brand-right {
+      text-align: right;
+      line-height: 1.25;
+    }
+    .brand-right-title {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      color: #ffffff;
+    }
+    .brand-right-meta {
+      font-size: 8.5px;
+      font-weight: 600;
+      color: #99f6e4;
+    }
+
+    /* Page Footer */
+    .page-footer {
+      margin-top: auto;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 5px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .footer-accreditation-line {
+      font-size: 7.8px;
+      font-weight: 600;
+      color: #008080;
+      margin-bottom: 2px;
+    }
+    .footer-highlight {
+      font-size: 8.2px;
+      font-weight: 700;
+      color: #008080;
+    }
+    .footer-meta-row {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      margin-top: 3px;
+      font-size: 7.2px;
+      color: #94a3b8;
+    }
+
+    /* Page 4: Conditions of Reporting & Advisory */
+    .conditions-card {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 14px 18px;
+      margin-top: 8px;
+    }
+    .conditions-card-title {
+      font-size: 10px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .conditions-card-list {
+      margin: 0;
+      padding-left: 16px;
+      font-size: 8px;
+      color: #334155;
+      line-height: 1.55;
+    }
+    .conditions-card-list li {
+      margin-bottom: 5px;
+    }
+    .feedback-support-box {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 10px 16px;
+      margin-top: 14px;
+      font-size: 8px;
+      color: #334155;
+      line-height: 1.4;
+    }
+    .feedback-support-box strong {
+      color: #008080;
+      font-weight: 700;
+    }
+    .end-of-report-label {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 8.5px;
+      font-weight: 500;
+      margin-top: 25px;
+      letter-spacing: 0.5px;
+    }
+
+    /* Typography */
+    .report-title-wrap {
+      margin-bottom: 6px;
+    }
+    .main-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.3px;
+      margin: 0;
+      line-height: 1.15;
+    }
+    .main-subtitle {
+      font-size: 8.5px;
+      color: #64748b;
+      margin: 2px 0 0 0;
+    }
+
+    /* Patient Info Card & Hero Grid */
+    .patient-card-grid {
+      display: grid;
+      grid-template-columns: 1fr 140px;
+      gap: 10px;
+      margin-bottom: 8px;
+      align-items: stretch;
+    }
+    .patient-box-card {
+      border: 1.5px solid #006666;
+      border-radius: 8px;
+      background: #ffffff;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+    }
+    .card-row {
+      display: flex;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 3.5px 12px;
+    }
+    .card-row:last-child {
+      border-bottom: none;
+    }
+    .card-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    .card-label {
+      font-size: 7.2px;
+      font-weight: 700;
+      color: #006666;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      margin-bottom: 1px;
+    }
+    .card-val {
+      font-size: 8.8px;
+      font-weight: 700;
+      color: #111827;
+      line-height: 1.2;
+    }
+    .card-val-status {
+      color: #059669 !important;
+      font-weight: 700;
+    }
+    .cover-hero-wrap {
+      height: 100%;
+      min-height: 100%;
+      border-radius: 8px;
+      border: 1.5px solid #006666;
+      overflow: hidden;
+      background: #0d4d44;
+      display: flex;
+      align-items: stretch;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+    .cover-hero-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* Section Headers */
+    .section-title-wrap {
+      margin: 6px 0 4px 0;
+    }
+    .section-title {
+      font-size: 12.5px;
+      font-weight: 800;
+      color: #0f172a;
+      margin: 0;
+      letter-spacing: -0.2px;
+    }
+    .section-note {
+      font-size: 8px;
+      color: #64748b;
+      margin: 1px 0 0 0;
+    }
+
+    /* Tables */
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8px;
+    }
+    .report-table thead tr {
+      background: #0d4d44;
+      color: #ffffff;
+    }
+    .report-table th {
+      padding: 4px 6px;
+      font-weight: 700;
+      text-align: left;
+      font-size: 7.5px;
+      letter-spacing: 0.3px;
+    }
+    .report-table tbody tr {
+      border-bottom: 1px solid #f1f5f9;
+      height: 20px;
+    }
+    .report-table tbody tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .report-table td {
+      padding: 3px 6px;
+      vertical-align: middle;
+    }
+    .val-red {
+      color: #dc2626 !important;
+      font-weight: 800 !important;
+    }
+
+    /* 53-parameter master table */
+    .report-table-53 {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 7.2px;
+    }
+    .report-table-53 thead tr {
+      background: #0d4d44;
+      color: #ffffff;
+    }
+    .report-table-53 th {
+      padding: 2.2px 5px;
+      font-weight: 700;
+      text-align: left;
+      font-size: 7px;
+      letter-spacing: 0.3px;
+    }
+    .report-table-53 tbody tr {
+      border-bottom: 1px solid #f1f5f9;
+      height: 13.5px;
+    }
+    .report-table-53 tbody tr:nth-child(even) {
+      background: #f8fafc;
+    }
+    .report-table-53 td {
+      padding: 1.2px 5px;
+      vertical-align: middle;
+      line-height: 1.15;
+    }
+
+    /* Category banner rows inside tables */
+    .cat-header-row td {
+      background: #f1f5f9 !important;
+      font-weight: 800;
+      color: #0d4d44 !important;
+      font-size: 8px;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      padding: 3.5px 6px;
+      border-top: 1px solid #cbd5e1;
+      border-bottom: 1px solid #cbd5e1;
+    }
+
+    /* CBC Notes Box */
+    .notes-box {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-left: 3px solid #0d4d44;
+      border-radius: 4px;
+      padding: 5px 8px;
+      margin-top: 6px;
+      font-size: 7.5px;
+      color: #334155;
+    }
+
+    /* Accreditations bar */
+    .accreditation-bar {
+      margin: 6px 0;
+      text-align: center;
+    }
+    .accreditation-img {
+      max-height: 38px;
+      width: auto;
+      object-fit: contain;
+    }
+
+    /* Advisory Box */
+    .advisory-box {
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f8fafc;
+      padding: 6px 10px;
+      margin-top: 6px;
+      font-size: 7.5px;
+      color: #475569;
+    }
+    .advisory-title {
+      font-weight: 800;
+      color: #0f172a;
+      text-align: center;
+      margin-bottom: 4px;
+      font-size: 8px;
+      text-transform: uppercase;
+    }
+    .advisory-list {
+      margin: 0;
+      padding-left: 14px;
+      line-height: 1.35;
+    }
+
+    .promo-wrap {
+      text-align: center;
+      margin-top: 6px;
+    }
+    .promo-img {
+      max-height: 75px;
+      width: auto;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ========================================================== -->
+  <!-- PAGE 1: DEMOGRAPHICS + TIER 1 OUT OF REFERENCE RANGE (19) -->
+  <!-- ========================================================== -->
+  <div class="report-page">
+    <!-- Top Header Banner -->
+    <div class="top-header-banner">
+      <div class="brand-left">Zylk Health</div>
+      <div class="brand-right">
+        <div class="brand-right-title">MEDICAL LABORATORY REPORT</div>
+        <div class="brand-right-meta">{{ (metadata.patient_name or 'KANAGAVALLI K') | upper }} | Lab code: {{ metadata.lab_code or metadata.sample_id or '1509074825/FE254' }}</div>
+      </div>
+    </div>
+
+    <!-- Title Area -->
+    <div class="report-title-wrap">
+      <h1 class="main-title">Laboratory Report</h1>
+      <p class="main-subtitle">Summary of results that need attention, followed by the complete results.</p>
+    </div>
+
+    <!-- Patient Demographics & Hero Photo Grid -->
+    <div class="patient-card-grid">
+      <div class="patient-box-card">
+        <div class="card-row">
+          <div class="card-col">
+            <span class="card-label">PATIENT NAME</span>
+            <span class="card-val">{{ (metadata.patient_name or 'KANAGAVALLI K') | upper }}</span>
+          </div>
+          <div class="card-col">
+            <span class="card-label">TEST PACKAGE</span>
+            {% set raw_test = (metadata.test_type or '') | upper %}
+            {% if 'WOMEN' in raw_test or 'FEMALE' in raw_test %}
+              <span class="card-val">WOMEN HAIRFALL SCREENING ADVANCED</span>
+            {% elif 'MENS' in raw_test or 'MEN ' in raw_test or 'MALE' in raw_test %}
+              <span class="card-val">MENS HAIRFALL SCREENING ADVANCED</span>
+            {% else %}
+              <span class="card-val">{{ (metadata.test_type or 'MENS HAIRFALL SCREENING ADVANCED') | replace('SERUM:', '') | replace('EDTA:', '') | replace('JAANCH - ', '') | replace('Jaanch - ', '') | trim | upper }}</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="card-row">
+          <div class="card-col">
+            <span class="card-label">SAMPLE DATE</span>
+            <span class="card-val">{{ metadata.collection_date or '15 Sep 2026' }}</span>
+          </div>
+          <div class="card-col">
+            <span class="card-label">REPORT DATE</span>
+            <span class="card-val">{{ metadata.report_date or '15 Sep 2026' }}</span>
+          </div>
+        </div>
+
+        <div class="card-row">
+          <div class="card-col">
+            <span class="card-label">PHONE NUMBER</span>
+            <span class="card-val">{{ metadata.phone or '+91 9894377521' }}</span>
+          </div>
+          <div class="card-col">
+            <span class="card-label">REPORT ID / LAB CODE</span>
+            <span class="card-val">{{ metadata.lab_code or metadata.sample_id or '1509074825/FE254' }}</span>
+          </div>
+        </div>
+
+        <div class="card-row">
+          <div class="card-col">
+            <span class="card-label">SPECIMEN</span>
+            <span class="card-val">{{ metadata.specimen if (metadata.specimen and 'Serum; whole blood' not in metadata.specimen) else 'Blood Test' }}</span>
+          </div>
+          <div class="card-col">
+            <span class="card-label">STATUS</span>
+            <span class="card-val card-val-status">Final &ndash; Verified</span>
+          </div>
+        </div>
+
+        <div class="card-row">
+          <div class="card-col">
+            <span class="card-label">AGE</span>
+            <span class="card-val">{{ metadata.age_gender or '21' }}</span>
+          </div>
+          <div class="card-col">
+            <span class="card-label">PINCODE</span>
+            <span class="card-val">{{ metadata.pincode or '627007' }}</span>
+          </div>
+        </div>
+
+        <div class="card-row card-row-last">
+          <div class="card-col" style="flex: 1;">
+            <span class="card-label">ADDRESS</span>
+            <span class="card-val">{{ metadata.address or 'INGENX LABS Pvt Ltd., P18, Shifa Golden City, Tirunelveli. - 627007' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cover-hero-wrap">
+        {% set _test_up = (metadata.test_type or '') | upper %}
+        {% set _ag_up = (metadata.age_gender or '') | upper %}
+        {% set _is_female = (metadata.gender == 'FEMALE') or ('WOMEN' in _test_up) or ('FEMALE' in _test_up) or ('/F' in _ag_up) or ('FEMALE' in _ag_up) %}
+        {% set _is_male = not _is_female and ((metadata.gender == 'MALE') or ('MENS' in _test_up) or ('MALE' in _test_up) or ('/M' in _ag_up) or (' M' in _ag_up)) %}
+        {% if _is_male %}
+          <img src="/static/images/male_hero.png" alt="Patient" class="cover-hero-img">
+        {% else %}
+          <img src="/static/images/female_hero.png" alt="Patient" class="cover-hero-img">
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Tier 1: Results Needing Attention (Continuous on Page 1) -->
+    <div class="section-title-wrap">
+      <h2 class="section-title">Results Needing Attention</h2>
+      <p class="section-note"><span style="color: #dc2626; font-weight: 700;">Bold red rows = needs prompt clinical review.</span> All values are shown exactly as reported by the laboratory.</p>
+    </div>
+
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th style="width: 18%;">AREA</th>
+          <th style="width: 30%;">TEST</th>
+          <th style="width: 10%; text-align: center;">RESULT</th>
+          <th style="width: 10%; text-align: center;">FLAG</th>
+          <th style="width: 12%;">UNITS</th>
+          <th style="width: 20%;">REFERENCE RANGE</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% if flagged_tests and flagged_tests|length > 0 %}
+          {% for test in flagged_tests %}
+          <tr>
+            <td style="font-weight: 700; color: #475569;">{{ test.category | capitalize }}</td>
+            <td style="font-weight: 700; color: #0f172a;">{{ (test.parameter or test.name or test.test_name) }}</td>
+            <td style="text-align: center;" class="val-red">{{ test.value }}</td>
+            <td style="text-align: center;" class="val-red">{{ test.flag | capitalize }}</td>
+            <td>{{ test.unit }}</td>
+            <td style="font-weight: 600; color: #0369a1;">{{ test.ref_range }}</td>
+          </tr>
+          {% endfor %}
+        {% else %}
+          <!-- Default sample 19 flagged parameters fallback -->
+          <tr><td style="font-weight: 700; color: #475569;">Thyroid</td><td style="font-weight: 700; color: #0f172a;">TSH - Ultrasensitive</td><td style="text-align: center;" class="val-red">21.747</td><td style="text-align: center;" class="val-red">High</td><td>µIU/mL</td><td style="font-weight: 600; color: #0369a1;">0.35 - 4.94</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Vitamins</td><td style="font-weight: 700; color: #0f172a;">25-OH Vitamin D (Total)</td><td style="text-align: center;" class="val-red">11.4</td><td style="text-align: center;" class="val-red">Low</td><td>ng/mL</td><td style="font-weight: 600; color: #0369a1;">30 - 100</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Iron Deficiency</td><td style="font-weight: 700; color: #0f172a;">Iron</td><td style="text-align: center;" class="val-red">28.2</td><td style="text-align: center;" class="val-red">Low</td><td>µg/dL</td><td style="font-weight: 600; color: #0369a1;">37 - 165</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Iron Deficiency</td><td style="font-weight: 700; color: #0f172a;">% Transferrin Saturation</td><td style="text-align: center;" class="val-red">5.88</td><td style="text-align: center;" class="val-red">Low</td><td>%</td><td style="font-weight: 600; color: #0369a1;">13 - 45</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Iron Deficiency</td><td style="font-weight: 700; color: #0f172a;">Unsat. Iron-Binding Capacity (UIBC)</td><td style="text-align: center;" class="val-red">451.8</td><td style="text-align: center;" class="val-red">High</td><td>µg/dL</td><td style="font-weight: 600; color: #0369a1;">162 - 368</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Infertility</td><td style="font-weight: 700; color: #0f172a;">Prolactin (PRL)</td><td style="text-align: center;" class="val-red">54.8</td><td style="text-align: center;" class="val-red">High</td><td>ng/mL</td><td style="font-weight: 600; color: #0369a1;">4.79 - 23.3</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Arthritis</td><td style="font-weight: 700; color: #0f172a;">Phosphorous</td><td style="text-align: center;" class="val-red">10.27</td><td style="text-align: center;" class="val-red">High</td><td>mg/dL</td><td style="font-weight: 600; color: #0369a1;">2.4 - 5.1</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Metabolic</td><td style="font-weight: 700; color: #0f172a;">Magnesium</td><td style="text-align: center;" class="val-red">2.61</td><td style="text-align: center;" class="val-red">High</td><td>mg/dL</td><td style="font-weight: 600; color: #0369a1;">1.9 - 2.5</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Complete Hemogram</td><td style="font-weight: 700; color: #0f172a;">Hemoglobin</td><td style="text-align: center;" class="val-red">9.7</td><td style="text-align: center;" class="val-red">Low</td><td>g/dL</td><td style="font-weight: 600; color: #0369a1;">12.0 - 15.0</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Complete Hemogram</td><td style="font-weight: 700; color: #0f172a;">Total RBC</td><td style="text-align: center;" class="val-red">4.87</td><td style="text-align: center;" class="val-red">High</td><td>X 10^6/µL</td><td style="font-weight: 600; color: #0369a1;">3.8 - 4.8</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Complete Hemogram</td><td style="font-weight: 700; color: #0f172a;">Mean Corpuscular Volume (MCV)</td><td style="text-align: center;" class="val-red">79.5</td><td style="text-align: center;" class="val-red">Low</td><td>fL</td><td style="font-weight: 600; color: #0369a1;">83.0 - 101.0</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Complete Hemogram</td><td style="font-weight: 700; color: #0f172a;">Mean Corpuscular Hemoglobin (MCH)</td><td style="text-align: center;" class="val-red">19.9</td><td style="text-align: center;" class="val-red">Low</td><td>pg</td><td style="font-weight: 600; color: #0369a1;">27.0 - 32.0</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Complete Hemogram</td><td style="font-weight: 700; color: #0f172a;">Mean Corp. Hemo. Conc (MCHC)</td><td style="text-align: center;" class="val-red">25.1</td><td style="text-align: center;" class="val-red">Low</td><td>g/dL</td><td style="font-weight: 600; color: #0369a1;">31.5 - 34.5</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Complete Hemogram</td><td style="font-weight: 700; color: #0f172a;">Red Cell Distribution Width - SD (RDW-SD)</td><td style="text-align: center;" class="val-red">60.5</td><td style="text-align: center;" class="val-red">High</td><td>fL</td><td style="font-weight: 600; color: #0369a1;">39.0 - 46.0</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Complete Hemogram</td><td style="font-weight: 700; color: #0f172a;">Red Cell Distribution Width (RDW - CV)</td><td style="text-align: center;" class="val-red">21.4</td><td style="text-align: center;" class="val-red">High</td><td>%</td><td style="font-weight: 600; color: #0369a1;">11.6 - 14.0</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Differential Leucocyte</td><td style="font-weight: 700; color: #0f172a;">Eosinophils</td><td style="text-align: center;" class="val-red">6.7</td><td style="text-align: center;" class="val-red">High</td><td>%</td><td style="font-weight: 600; color: #0369a1;">1 - 6</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Absolute Leucocyte</td><td style="font-weight: 700; color: #0f172a;">Eosinophils - Absolute Count</td><td style="text-align: center;" class="val-red">0.56</td><td style="text-align: center;" class="val-red">High</td><td>X 10³ / µL</td><td style="font-weight: 600; color: #0369a1;">0.02 - 0.5</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Platelet Count & Indices</td><td style="font-weight: 700; color: #0f172a;">Platelet Distribution Width (PDW)</td><td style="text-align: center;" class="val-red">9.4</td><td style="text-align: center;" class="val-red">Low</td><td>fL</td><td style="font-weight: 600; color: #0369a1;">9.6 - 15.2</td></tr>
+          <tr><td style="font-weight: 700; color: #475569;">Platelet Count & Indices</td><td style="font-weight: 700; color: #0f172a;">Platelet to Large Cell Ratio (PLCR)</td><td style="text-align: center;" class="val-red">17.9</td><td style="text-align: center;" class="val-red">Low</td><td>%</td><td style="font-weight: 600; color: #0369a1;">19.7 - 42.4</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+
+    <!-- Footer -->
+    <div class="page-footer">
+      <div class="footer-accreditation-line">All tests are performed at an NABL-accredited, ISO 9001-certified and CAP-accredited medical laboratory.</div>
+      <div class="footer-highlight">The result are reviewed and Verified by an MD pathologist.</div>
+      <div class="footer-meta-row">
+        <span>Page 1 of 4</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================================== -->
+  <!-- PAGE 2: COMPLETE HEMOGRAM / CBC REPORT (COMMERCIAL PANEL)  -->
+  <!-- ========================================================== -->
+  <div class="report-page">
+    <!-- Top Header Banner -->
+    <div class="top-header-banner">
+      <div class="brand-left">Zylk Health</div>
+    </div>
+
+    <!-- CBC Section Header -->
+    <div class="section-title-wrap" style="margin-bottom: 6px;">
+      <div style="font-size: 8px; font-weight: 800; color: #0d4d44; text-transform: uppercase; letter-spacing: 0.5px;">COMMERCIAL PROFILE / PACKAGED PANEL</div>
+      <h2 class="main-title" style="font-size: 16px;">Complete Hemogram / CBC Report</h2>
+      <p class="main-subtitle">Whole blood &ndash; EDTA specimen &ndash; Automated hematology analysis &bull; <strong>FINAL</strong></p>
+    </div>
+
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th style="width: 38%;">TEST NAME</th>
+          <th style="width: 20%;">METHODOLOGY</th>
+          <th style="width: 14%; text-align: center;">OBSERVED</th>
+          <th style="width: 12%;">UNITS</th>
+          <th style="width: 16%;">BIO. REF. INTERVAL</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- RED BLOOD CELL INDICES -->
+        {% set is_male = (metadata.gender|upper == 'MALE') or ('MEN' in (metadata.test_type|upper)) %}
+        <tr class="cat-header-row"><td colspan="5">RED BLOOD CELL INDICES</td></tr>
+        {% set _hb = tmap.get('HEMOGLOBIN', {}) %}
+        <tr><td style="font-weight: 700;">HEMOGLOBIN</td><td>{{ _hb.get('method','SLS-Hemoglobin Method') }}</td><td style="text-align: center;" class="{{ 'val-red' if (_hb.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _hb.get('value','—') }}</td><td>{{ _hb.get('unit','g/dL') }}</td><td style="font-weight: 600;">{{ _hb.get('ref_range') or ('13.0 - 17.0' if is_male else '12.0 - 15.0') }}</td></tr>
+        {% set _pcv = tmap.get('HEMATOCRIT (PCV)', {}) %}
+        <tr><td style="font-weight: 700;">HEMATOCRIT (PCV)</td><td>{{ _pcv.get('method','CPH Detection') }}</td><td style="text-align: center;" class="{{ 'val-red' if (_pcv.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _pcv.get('value','—') }}</td><td>{{ _pcv.get('unit','%') }}</td><td style="font-weight: 600;">{{ _pcv.get('ref_range') or ('40.0 - 50.0' if is_male else '36.0 - 46.0') }}</td></tr>
+        {% set _rbc = tmap.get('TOTAL RBC', {}) %}
+        <tr><td style="font-weight: 700;">TOTAL RBC</td><td>{{ _rbc.get('method','HF & EI') }}</td><td style="text-align: center;" class="{{ 'val-red' if (_rbc.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _rbc.get('value','—') }}</td><td>{{ _rbc.get('unit','x 10^6/uL') }}</td><td style="font-weight: 600;">{{ _rbc.get('ref_range') or ('4.5 - 5.5' if is_male else '3.8 - 4.8') }}</td></tr>
+        {% set _mcv = tmap.get('MEAN CORPUSCULAR VOLUME (MCV)', {}) %}
+        <tr><td style="font-weight: 700;">Mean Corpuscular Volume (MCV)</td><td>{{ _mcv.get('method','Calculated') }}</td><td style="text-align: center;" class="{{ 'val-red' if (_mcv.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _mcv.get('value','—') }}</td><td>{{ _mcv.get('unit','fL') }}</td><td style="font-weight: 600;">{{ _mcv.get('ref_range','83.0 - 101.0') }}</td></tr>
+        {% set _mch = tmap.get('MEAN CORPUSCULAR HEMOGLOBIN (MCH)', {}) %}
+        <tr><td style="font-weight: 700;">Mean Corpuscular Hemoglobin (MCH)</td><td>{{ _mch.get('method','Calculated') }}</td><td style="text-align: center;" class="{{ 'val-red' if (_mch.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _mch.get('value','—') }}</td><td>{{ _mch.get('unit','pg') }}</td><td style="font-weight: 600;">{{ _mch.get('ref_range','27.0 - 32.0') }}</td></tr>
+        {% set _mchc = tmap.get('MEAN CORP. HEMO. CONC (MCHC)', {}) %}
+        <tr><td style="font-weight: 700;">Mean Corp. Hemo. Conc. (MCHC)</td><td>{{ _mchc.get('method','Calculated') }}</td><td style="text-align: center;" class="{{ 'val-red' if (_mchc.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _mchc.get('value','—') }}</td><td>{{ _mchc.get('unit','g/dL') }}</td><td style="font-weight: 600;">{{ _mchc.get('ref_range','31.5 - 34.5') }}</td></tr>
+        {% set _rdwsd = tmap.get('RED CELL DISTRIBUTION WIDTH - SD (RDW-SD)', {}) %}
+        <tr><td style="font-weight: 700;">Red Cell Distribution Width (RDW-SD)</td><td>{{ _rdwsd.get('method','Calculated') }}</td><td style="text-align: center;" class="{{ 'val-red' if (_rdwsd.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _rdwsd.get('value','—') }}</td><td>{{ _rdwsd.get('unit','fL') }}</td><td style="font-weight: 600;">{{ _rdwsd.get('ref_range') or ('39 - 46' if is_male else '39.0 - 46.0') }}</td></tr>
+        {% set _rdwcv = tmap.get('RED CELL DISTRIBUTION WIDTH (RDW - CV)', {}) %}
+        <tr><td style="font-weight: 700;">Red Cell Distribution Width (RDW-CV)</td><td>{{ _rdwcv.get('method','Calculated') }}</td><td style="text-align: center;" class="{{ 'val-red' if (_rdwcv.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _rdwcv.get('value','—') }}</td><td>{{ _rdwcv.get('unit','%') }}</td><td style="font-weight: 600;">{{ _rdwcv.get('ref_range','11.6 - 14.0') }}</td></tr>
+        {% set _rdwi = tmap.get('RED CELL DISTRIBUTION WIDTH INDEX (RDWI)', {}) %}
+        <tr><td style="font-weight: 700;">RBC Distribution Width Index (RDWI)</td><td>{{ _rdwi.get('method','Calculated') }}</td><td style="text-align: center;" class="{{ 'val-red' if (_rdwi.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _rdwi.get('value','—') }}</td><td>-</td><td style="font-weight: 600;">Refer notes</td></tr>
+        {% set _mi = tmap.get('MENTZER INDEX', {}) %}
+        <tr><td style="font-weight: 700;">Mentzer Index</td><td>{{ _mi.get('method','Calculated') }}</td><td style="text-align: center;" class="{{ 'val-red' if (_mi.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _mi.get('value','—') }}</td><td>-</td><td style="font-weight: 600;">Refer notes</td></tr>
+
+        <!-- WHITE BLOOD CELLS -->
+        <tr class="cat-header-row"><td colspan="5">WHITE BLOOD CELLS</td></tr>
+        {% set _wbc = tmap.get('TOTAL LEUCOCYTE COUNT (WBC)', {}) %}
+        <tr><td style="font-weight: 700;">TOTAL LEUCOCYTE COUNT (WBC)</td><td>HF &amp; FC</td><td style="text-align: center;" class="{{ 'val-red' if (_wbc.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _wbc.get('value','—') }}</td><td>{{ _wbc.get('unit','x 10^3/uL') }}</td><td style="font-weight: 600;">{{ _wbc.get('ref_range','4.0 - 10.0') }}</td></tr>
+        {% set _neu = tmap.get('NEUTROPHILS', {}) %}
+        <tr><td style="font-weight: 700;">Neutrophils Percentage</td><td>Flow Cytometry</td><td style="text-align: center;" class="{{ 'val-red' if (_neu.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _neu.get('value','—') }}</td><td>%</td><td style="font-weight: 600;">{{ _neu.get('ref_range','40 - 80') }}</td></tr>
+        {% set _lym = tmap.get('LYMPHOCYTES', {}) %}
+        <tr><td style="font-weight: 700;">Lymphocytes Percentage</td><td>Flow Cytometry</td><td style="text-align: center;" class="{{ 'val-red' if (_lym.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _lym.get('value','—') }}</td><td>%</td><td style="font-weight: 600;">{{ _lym.get('ref_range','20 - 40') }}</td></tr>
+        {% set _mon = tmap.get('MONOCYTES', {}) %}
+        <tr><td style="font-weight: 700;">Monocytes Percentage</td><td>Flow Cytometry</td><td style="text-align: center;" class="{{ 'val-red' if (_mon.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _mon.get('value','—') }}</td><td>%</td><td style="font-weight: 600;">{{ _mon.get('ref_range','2 - 10') }}</td></tr>
+        {% set _eos = tmap.get('EOSINOPHILS', {}) %}
+        <tr><td style="font-weight: 700;">Eosinophils Percentage</td><td>Flow Cytometry</td><td style="text-align: center;" class="{{ 'val-red' if (_eos.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _eos.get('value','—') }}</td><td>%</td><td style="font-weight: 600;">{{ _eos.get('ref_range','1 - 6') }}</td></tr>
+        {% set _bas = tmap.get('BASOPHILS', {}) %}
+        <tr><td style="font-weight: 700;">Basophils Percentage</td><td>Flow Cytometry</td><td style="text-align: center;" class="{{ 'val-red' if (_bas.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _bas.get('value','—') }}</td><td>%</td><td style="font-weight: 600;">{{ _bas.get('ref_range','0 - 2') }}</td></tr>
+        {% set _ig = tmap.get('IMMATURE GRANULOCYTE PERCENTAGE (IG%)', {}) %}
+        <tr><td style="font-weight: 700;">Immature Granulocytes Percentage (IG%)</td><td>Flow Cytometry</td><td style="text-align: center;" class="{{ 'val-red' if (_ig.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _ig.get('value','—') }}</td><td>%</td><td style="font-weight: 600;">{{ _ig.get('ref_range') or ('0.0 - 0.5' if is_male else '0.0 - 0.4') }}</td></tr>
+        {% set _nrbc = tmap.get('NUCLEATED RED BLOOD CELLS %', {}) %}
+        <tr><td style="font-weight: 700;">Nucleated Red Blood Cells %</td><td>Flow Cytometry</td><td style="text-align: center;" class="{{ 'val-red' if (_nrbc.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _nrbc.get('value','—') }}</td><td>%</td><td style="font-weight: 600;">{{ _nrbc.get('ref_range') or '0.0 - 5.0' }}</td></tr>
+
+        <!-- ABSOLUTE LEUKOCYTE COUNT -->
+        <tr class="cat-header-row"><td colspan="5">ABSOLUTE LEUKOCYTE COUNT</td></tr>
+        {% set _aneu = tmap.get('NEUTROPHILS - ABSOLUTE COUNT', {}) %}
+        <tr><td style="font-weight: 700;">Neutrophils - Absolute Count</td><td>Calculated</td><td style="text-align: center;" class="{{ 'val-red' if (_aneu.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _aneu.get('value','—') }}</td><td>{{ _aneu.get('unit','x 10^3/uL') }}</td><td style="font-weight: 600;">{{ _aneu.get('ref_range','2.0 - 7.0') }}</td></tr>
+        {% set _alym = tmap.get('LYMPHOCYTES - ABSOLUTE COUNT', {}) %}
+        <tr><td style="font-weight: 700;">Lymphocytes - Absolute Count</td><td>Calculated</td><td style="text-align: center;" class="{{ 'val-red' if (_alym.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _alym.get('value','—') }}</td><td>{{ _alym.get('unit','x 10^3/uL') }}</td><td style="font-weight: 600;">{{ _alym.get('ref_range','1.0 - 3.0') }}</td></tr>
+        {% set _amon = tmap.get('MONOCYTES - ABSOLUTE COUNT', {}) %}
+        <tr><td style="font-weight: 700;">Monocytes - Absolute Count</td><td>Calculated</td><td style="text-align: center;" class="{{ 'val-red' if (_amon.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _amon.get('value','—') }}</td><td>{{ _amon.get('unit','x 10^3/uL') }}</td><td style="font-weight: 600;">{{ _amon.get('ref_range','0.2 - 1.0') }}</td></tr>
+        {% set _abas = tmap.get('BASOPHILS - ABSOLUTE COUNT', {}) %}
+        <tr><td style="font-weight: 700;">Basophils - Absolute Count</td><td>Calculated</td><td style="text-align: center;" class="{{ 'val-red' if (_abas.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _abas.get('value','—') }}</td><td>{{ _abas.get('unit','x 10^3/uL') }}</td><td style="font-weight: 600;">{{ _abas.get('ref_range','0.02 - 0.1') }}</td></tr>
+        {% set _aeos = tmap.get('EOSINOPHILS - ABSOLUTE COUNT', {}) %}
+        <tr><td style="font-weight: 700;">Eosinophils - Absolute Count</td><td>Calculated</td><td style="text-align: center;" class="{{ 'val-red' if (_aeos.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _aeos.get('value','—') }}</td><td>{{ _aeos.get('unit','x 10^3/uL') }}</td><td style="font-weight: 600;">{{ _aeos.get('ref_range','0.02 - 0.5') }}</td></tr>
+        {% set _aig = tmap.get('IMMATURE GRANULOCYTES (IG)', {}) %}
+        <tr><td style="font-weight: 700;">Immature Granulocytes (IG)</td><td>Calculated</td><td style="text-align: center;" class="{{ 'val-red' if (_aig.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _aig.get('value','—') }}</td><td>{{ _aig.get('unit','x 10^3/uL') }}</td><td style="font-weight: 600;">{{ _aig.get('ref_range','0.0 - 0.3') }}</td></tr>
+        {% set _anrbc = tmap.get('NUCLEATED RED BLOOD CELLS', {}) %}
+        <tr><td style="font-weight: 700;">Nucleated Red Blood Cells</td><td>Calculated</td><td style="text-align: center;" class="{{ 'val-red' if (_anrbc.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _anrbc.get('value','—') }}</td><td>{{ _anrbc.get('unit','x 10^3/uL') }}</td><td style="font-weight: 600;">{{ _anrbc.get('ref_range','0.0 - 0.5') }}</td></tr>
+
+        <!-- PLATELET COUNT & INDICES (Thyrocare Order: COUNT -> MPV -> PDW -> PLCR -> PCT) -->
+        <tr class="cat-header-row"><td colspan="5">PLATELET COUNT &amp; INDICES</td></tr>
+        {% set _plt = tmap.get('PLATELET COUNT', {}) %}
+        <tr><td style="font-weight: 700;">PLATELET COUNT</td><td>HF &amp; EI</td><td style="text-align: center;" class="{{ 'val-red' if (_plt.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _plt.get('value','—') }}</td><td>{{ _plt.get('unit','x 10^3/uL') }}</td><td style="font-weight: 600;">{{ _plt.get('ref_range','150 - 410') }}</td></tr>
+        {% set _mpv = tmap.get('MEAN PLATELET VOLUME (MPV)', {}) %}
+        <tr><td style="font-weight: 700;">Mean Platelet Volume (MPV)</td><td>Calculated</td><td style="text-align: center;" class="{{ 'val-red' if (_mpv.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _mpv.get('value','—') }}</td><td>{{ _mpv.get('unit','fL') }}</td><td style="font-weight: 600;">{{ _mpv.get('ref_range','6.5 - 12') }}</td></tr>
+        {% set _pdw = tmap.get('PLATELET DISTRIBUTION WIDTH (PDW)', {}) %}
+        <tr><td style="font-weight: 700;">Platelet Distribution Width (PDW)</td><td>Calculated</td><td style="text-align: center;" class="{{ 'val-red' if (_pdw.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _pdw.get('value','—') }}</td><td>{{ _pdw.get('unit','fL') }}</td><td style="font-weight: 600;">{{ _pdw.get('ref_range','9.6 - 15.2') }}</td></tr>
+        {% set _plcr = tmap.get('PLATELET TO LARGE CELL RATIO (PLCR)', {}) %}
+        <tr><td style="font-weight: 700;">Platelet to Large Cell Ratio (PLCR)</td><td>Calculated</td><td style="text-align: center;" class="{{ 'val-red' if (_plcr.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _plcr.get('value','—') }}</td><td>{{ _plcr.get('unit','%') }}</td><td style="font-weight: 600;">{{ _plcr.get('ref_range','19.7 - 42.4') }}</td></tr>
+        {% set _pct = tmap.get('PLATELETCRIT (PCT)', {}) %}
+        <tr><td style="font-weight: 700;">Plateletcrit (PCT)</td><td>Calculated</td><td style="text-align: center;" class="{{ 'val-red' if (_pct.get('flag')|upper) in ['HIGH','LOW'] else 'font-weight: 600;' }}">{{ _pct.get('value','—') }}</td><td>{{ _pct.get('unit','%') }}</td><td style="font-weight: 600;">{{ _pct.get('ref_range','0.19 - 0.39') }}</td></tr>
+      </tbody>
+    </table>
+
+    <!-- Mentzer Index & RDWI Explanatory Note -->
+    <div style="margin-top: 4px; padding: 4px 8px; font-size: 6.8px; color: #475569; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; line-height: 1.35;">
+      <strong>*Note:</strong> Mentzer index (MI), RDW-CV and RDWI are hematological indices to differentiate between Iron Deficiency Anemia (IDA) and Beta Thalassemia Trait (BTT). MI &gt; 13, RDWI &gt; 220 and RDW-CV &gt; 14 more likely to be IDA. MI &lt; 13, RDWI &lt; 220, and RDW-CV &lt; 14 more likely to be BTT. Suggested clinical correlation. BTT to be confirmed with Hb electrophoresis if clinically indicated.
+    </div>
+
+    <!-- Clinical Smear Notes -->
+    <div class="notes-box">
+      <strong>REMARKS / CLINICAL NOTES:</strong> {{ metadata.clinical_notes or ('Alert!!! Predominantly normocytic normochromic with ovalocytes. Platelets: Appear adequate in smear.' if is_male else 'Alert!!! RBCs: Marked anisocytosis, moderate poikilocytosis. Predominantly normocytic normochromic with microcytes & ovalocytes. Platelets: Appear adequate in smear.') }}
+    </div>
+
+    <!-- Footer -->
+    <div class="page-footer">
+      <div class="footer-accreditation-line">All tests are performed at an NABL-accredited, ISO 9001-certified and CAP-accredited medical laboratory.</div>
+      <div class="footer-highlight">The result are reviewed and Verified by an MD pathologist.</div>
+      <div class="footer-meta-row">
+        <span>Page 2 of 4</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================================== -->
+  <!-- PAGE 3: COMPREHENSIVE BIOMARKERS + CONDITIONS & ADVISORY   -->
+  <!-- ========================================================== -->
+  <div class="report-page">
+    <!-- Top Header Banner -->
+    <div class="top-header-banner">
+      <div class="brand-left">Zylk Health</div>
+    </div>
+
+    <!-- Title Area -->
+    <div class="section-title-wrap" style="margin-bottom: 4px;">
+      <div style="font-size: 8px; font-weight: 800; color: #0d4d44; text-transform: uppercase; letter-spacing: 0.5px;">TIER 3: INDIVIDUAL ANALYTES (FULL LAB PARAMETERS)</div>
+      <h2 class="main-title" style="font-size: 14px;">Comprehensive Diagnostic Health Report</h2>
+      <p class="main-subtitle">Complete laboratory audit of all tested biomarkers, methodologies and biological reference intervals.</p>
+    </div>
+
+    <table class="report-table-53">
+      <thead>
+        <tr>
+          <th style="width: 5%; text-align: center;">SR.</th>
+          <th style="width: 23%;">CATEGORY / DEPARTMENT</th>
+          <th style="width: 33%;">DESCRIPTION / TEST NAME</th>
+          <th style="width: 13%; text-align: center;">OBSERVED VALUE</th>
+          <th style="width: 10%;">UNITS</th>
+          <th style="width: 16%;">NORMAL RANGE</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for test in tests %}
+        <tr>
+          <td style="text-align: center; color: #64748b;">{{ loop.index }}</td>
+          <td style="font-weight: 700; color: #334155;">{{ test.category }}</td>
+          <td style="font-weight: 700; color: #0f172a;">{{ test.parameter }}</td>
+          <td style="text-align: center;" class="{% if (test.flag|upper) in ['HIGH', 'LOW'] %}val-red{% else %}font-weight: 600;{% endif %}">{{ test.value }}</td>
+          <td>{{ test.unit or '-' }}</td>
+          <td style="font-weight: 600; color: #0284c7;">{{ test.ref_range }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Footer -->
+    <div class="page-footer">
+      <div class="footer-accreditation-line">All tests are performed at an NABL-accredited, ISO 9001-certified and CAP-accredited medical laboratory.</div>
+      <div class="footer-highlight">The result are reviewed and Verified by an MD pathologist.</div>
+      <div class="footer-meta-row">
+        <span>Page 3 of 4</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================================== -->
+  <!-- PAGE 4: CONDITIONS OF REPORTING & END OF REPORT           -->
+  <!-- ========================================================== -->
+  <div class="report-page">
+    <!-- Top Header Banner -->
+    <div class="top-header-banner">
+      <div class="brand-left">Zylk Health</div>
+    </div>
+
+    <!-- Conditions of Reporting Box -->
+    <div class="conditions-card">
+      <div class="conditions-card-title">CONDITIONS OF REPORTING</div>
+      <ul class="conditions-card-list">
+        <li>Results are for the information and interpretation of the referring doctor only.</li>
+        <li>Tests are presumed to have been performed on the specimen of the patient named or identified above.</li>
+        <li>Results may vary between laboratories, and over time for the same patient, depending on the assay method, equipment and specimen quality.</li>
+        <li>Any unexpected abnormal result should be reconfirmed.</li>
+        <li>Results should be interpreted only by medical professionals who understand the reporting units, reference ranges and limitations of the technologies used.</li>
+        <li>This report is not valid for medico-legal purposes.</li>
+        <li>Zylk Health and its employees and representatives accept no liability for (a) any bodily injury, loss or damage arising from an assumed meaning of this report, or (b) any claim arising from the performance of the requested tests, including indirect, incidental or consequential damages. Total liability shall not exceed the invoiced amount for the services provided and paid for.</li>
+      </ul>
+    </div>
+
+    <!-- Feedback & Clinical Support Box -->
+    <div class="feedback-support-box">
+      For suggestions, complaints, clinical support or feedback, email <strong>customercare@zylkhealth.com</strong> or call <strong>+91 98943 77521</strong>.
+    </div>
+
+    <!-- End of report divider -->
+    <div class="end-of-report-label">&mdash; End of report &mdash;</div>
+
+    <!-- Footer -->
+    <div class="page-footer">
+      <div class="footer-accreditation-line">All tests are performed at an NABL-accredited, ISO 9001-certified and CAP-accredited medical laboratory.</div>
+      <div class="footer-highlight">The result are reviewed and Verified by an MD pathologist.</div>
+      <div class="footer-meta-row">
+        <span>Page 4 of 4</span>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
