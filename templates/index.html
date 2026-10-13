@@ -728,8 +728,8 @@
             return;
           }
 
-          // Match < max
-          const matchLt = rangeStr.match(/<\s*([0-9]+(?:\.[0-9]+)?)/);
+          // Match < max or <= max
+          const matchLt = rangeStr.match(/<[=\s]*([0-9]+(?:\.[0-9]+)?)/);
           if (matchLt) {
             const max = parseFloat(matchLt[1]);
             if (val > max) test.flag = 'HIGH';
@@ -737,8 +737,8 @@
             return;
           }
 
-          // Match > min
-          const matchGt = rangeStr.match(/>\s*([0-9]+(?:\.[0-9]+)?)/);
+          // Match > min or >= min
+          const matchGt = rangeStr.match(/>[=\s]*([0-9]+(?:\.[0-9]+)?)/);
           if (matchGt) {
             const min = parseFloat(matchGt[1]);
             if (val < min) test.flag = 'LOW';

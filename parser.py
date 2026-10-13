@@ -261,11 +261,16 @@ def extract_patient_metadata(text: str) -> Dict[str, Any]:
                 metadata["test_type"] = next_l
 
     # 9. Extract peripheral blood smear clinical remarks from pathologist note
-    remark_match = re.search(r'(Alert\s*!{1,3}.*?(?:in\s*smear|on\s*smear|adequate))', text, re.IGNORECASE | re.DOTALL)
+    remark_match = re.search(r'(Alert\s*!{1,3}.*?(?:in\s*smear|on\s*smear|adequate(?:\s+in\s+smear)?)|\bPredominantly\s+normocytic.*?(?:in\s*smear|adequate))', text, re.IGNORECASE | re.DOTALL)
     if remark_match:
         raw_note = remark_match.group(1).strip()
         raw_note = re.sub(r'Remarks\s*:\s*', '', raw_note, flags=re.IGNORECASE)
+        raw_note = re.sub(r'Platelets\s*:\s*', 'Platelets: ', raw_note, flags=re.IGNORECASE)
         raw_note = re.sub(r'\s+', ' ', raw_note).strip(' :,-')
+        if "adequate" in raw_note.lower() and "smear" not in raw_note.lower():
+            raw_note += " in smear."
+        elif not raw_note.endswith('.'):
+            raw_note += '.'
         metadata["clinical_notes"] = raw_note
     elif not metadata.get("clinical_notes"):
         if metadata.get("gender") == "MALE":
@@ -830,23 +835,41 @@ def process_multiple_documents(file_paths: List[str], uploads_dir: str) -> Dict[
 
         if test_name in all_found_tests:
             val = all_found_tests[test_name]["value"]
-            flag = determine_flag_gender(val, min_val, max_val, is_phase_dependent, ref_range_str=ref_range)
+            found_info = all_found_tests[test_name]
         else:
             continue
+
+        extracted_unit = found_info.get("unit")
+        clean_unit = extracted_unit if extracted_unit and extracted_unit.strip() not in ["-", "—", "UNITS", "UNIT", ""] else entry["unit"]
+
+        # If test is ANA, normalize to CMIA AU/mL if value matches CMIA
+        if "ANTI NUCLEAR ANTIBODIES" in test_name or test_name == "ANA":
+            val_m = re.search(r'([0-9]+(?:\.[0-9]+)?)', str(val) or '0')
+            v_num = float(val_m.group(1)) if val_m else 0.0
+            if "AU" in str(clean_unit).upper() or v_num > 1.2 or "< 20" in str(ref_range):
+                clean_unit = "AU/mL"
+                ref_range = "< 20"
+                min_val = None
+                max_val = 20.0
+                flag = "NORMAL" if v_num <= 20.0 else "HIGH"
+            else:
+                flag = determine_flag_gender(val, min_val, max_val, is_phase_dependent, ref_range_str=ref_range)
+        else:
+            flag = determine_flag_gender(val, min_val, max_val, is_phase_dependent, ref_range_str=ref_range)
 
         final_test_rows.append({
             "sr_no": len(final_test_rows) + 1,
             "category": entry["category"],
             "parameter": entry["name"],
             "value": val,
-            "unit": entry["unit"],
+            "unit": clean_unit,
             "ref_range": ref_range,
             "min_val": min_val,
             "max_val": max_val,
             "flag": flag,
             "is_phase_dependent": is_phase_dependent,
             "phase_disclaimer": entry.get("phase_disclaimer", ""),
-            "method": entry.get("method", "Automated")
+            "method": found_info.get("method") or entry.get("method", "Automated")
         })
 
     flagged_tests = [t for t in final_test_rows if t.get("flag") in ["HIGH", "LOW"]]

@@ -186,15 +186,15 @@ BLOOD_TESTS_REGISTRY: List[Dict[str, Any]] = [
     {
         "category": "ARTHRITIS",
         "name": "ANTI NUCLEAR ANTIBODIES (ANA)",
-        "aliases": ["anti nuclear antibodies", "ana", "ana elisa"],
-        "unit": "OD ratio",
-        "ref_range_male": "< 0.90",
+        "aliases": ["anti nuclear antibodies", "ana", "ana cmia", "ana elisa"],
+        "unit": "AU/mL",
+        "ref_range_male": "< 20",
         "min_val_male": None,
-        "max_val_male": 0.90,
-        "ref_range_female": "< 0.90",
+        "max_val_male": 20.0,
+        "ref_range_female": "< 20",
         "min_val_female": None,
-        "max_val_female": 0.90,
-        "method": "E.L.I.S.A"
+        "max_val_female": 20.0,
+        "method": "C.M.I.A"
     },
     {
         "category": "ARTHRITIS",
@@ -904,6 +904,21 @@ def ensure_test_flag(test: Dict[str, Any], gender: str = "FEMALE") -> Dict[str, 
     if not val or str(val).strip() in ["—", "-", "", "None"]:
         test["flag"] = "NORMAL"
         return test
+
+    param_name = (test.get("parameter") or test.get("name") or "").upper()
+    if "ANTI NUCLEAR ANTIBODIES" in param_name or param_name == "ANA" or "ANA (" in param_name:
+        val_m = re.search(r'([0-9]+(?:\.[0-9]+)?)', str(val))
+        if val_m:
+            v_num = float(val_m.group(1))
+            unit_str = str(test.get("unit", "")).upper()
+            if "AU" in unit_str or v_num > 1.2 or "< 20" in str(test.get("ref_range", "")):
+                test["unit"] = "AU/mL"
+                test["ref_range"] = "< 20"
+                test["max_val"] = 20.0
+                test["min_val"] = None
+                test["flag"] = "NORMAL" if v_num <= 20.0 else "HIGH"
+                test["method"] = "C.M.I.A"
+                return test
 
     ref_range = test.get("ref_range", "")
     min_val = test.get("min_val")

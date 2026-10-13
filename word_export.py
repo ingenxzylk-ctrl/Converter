@@ -413,7 +413,12 @@ def generate_word_report_bytes(patient_data: dict) -> bytes:
     clinic = patient_data.get("clinic", {})
     metadata = patient_data.get("metadata", {})
     tests = patient_data.get("tests", [])
-    flagged_tests = [t for t in tests if t.get("flag") in ["HIGH", "LOW"]]
+    is_male = is_male_patient(metadata)
+    from blood_tests_db import ensure_test_flag
+    gender = metadata.get("gender", "MALE" if is_male else "FEMALE")
+    for t in tests:
+        ensure_test_flag(t, gender=gender)
+    flagged_tests = [t for t in tests if str(t.get("flag", "")).upper() in ["HIGH", "LOW"]]
     tmap = {t["parameter"]: t for t in tests}
 
     patient_name = (metadata.get("patient_name") or "KANAGAVALLI K").strip()
