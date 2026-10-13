@@ -36,11 +36,10 @@ def embed_static_images_as_base64(html_content: str, static_dir: Path) -> str:
     return re.sub(r'src=["\'](/static/[^"\']+)["\']', replacer, html_content)
 
 
-def generate_zylk_report(patient_data: dict, output_path: str) -> str:
+def render_zylk_report_html(patient_data: dict) -> str:
     """
     Renders patient_data using zylk_template.html (or branded_report.html)
-    and generates an official print-perfect A4 PDF with Playwright Chromium.
-    Enforces zero-margin A4 layout and background graphics.
+    and inlines static images as base64 for self-contained, high-fidelity rendering.
     """
     env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)))
     template_name = "zylk_template.html" if (TEMPLATES_DIR / "zylk_template.html").exists() else "branded_report.html"
@@ -71,7 +70,16 @@ def generate_zylk_report(patient_data: dict, output_path: str) -> str:
         tmap=tmap
     )
 
-    html_content_resolved = embed_static_images_as_base64(html_content, STATIC_DIR)
+    return embed_static_images_as_base64(html_content, STATIC_DIR)
+
+
+def generate_zylk_report(patient_data: dict, output_path: str) -> str:
+    """
+    Renders patient_data using zylk_template.html (or branded_report.html)
+    and generates an official print-perfect A4 PDF with Playwright Chromium.
+    Enforces zero-margin A4 layout and background graphics.
+    """
+    html_content_resolved = render_zylk_report_html(patient_data)
 
     out_file = Path(output_path)
     out_file.parent.mkdir(parents=True, exist_ok=True)
@@ -102,55 +110,31 @@ def generate_zylk_report_bytes(patient_data: dict) -> bytes:
     """
     Renders patient_data using zylk_template.html (or branded_report.html)
     and returns official print-perfect A4 PDF bytes directly.
+    Returns None if Playwright is not installed or Chromium browser cannot launch.
     """
-    env = Environment(loader=FileSystemLoader(str(TEMPLATES_DIR)))
-    template_name = "zylk_template.html" if (TEMPLATES_DIR / "zylk_template.html").exists() else "branded_report.html"
-    template = env.get_template(template_name)
-
-    clinic = patient_data.get("clinic", {})
-    metadata = patient_data.get("metadata", {})
-    tests = patient_data.get("tests", [])
-
-    from blood_tests_db import ensure_test_flag
-    gender = metadata.get("gender", "FEMALE")
-    for t in tests:
-        ensure_test_flag(t, gender=gender)
-
-    flagged_tests = [t for t in tests if str(t.get("flag", "")).upper() in ["HIGH", "LOW"]]
-    tmap = {}
-    for t in tests:
-        param = t.get("parameter") or t.get("name") or ""
-        tmap[param] = t
-        tmap[param.upper()] = t
-        tmap[re.sub(r'[^a-zA-Z0-9]', '', param).upper()] = t
-
-    html_content = template.render(
-        clinic=clinic,
-        metadata=metadata,
-        tests=tests,
-        flagged_tests=flagged_tests,
-        tmap=tmap
-    )
-
-    html_content_resolved = embed_static_images_as_base64(html_content, STATIC_DIR)
-
     if sync_playwright is None:
-        raise RuntimeError("Playwright is not installed in this environment. Use Word export (.docx) or browser Print to PDF.")
+        return None
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox", "--allow-file-access-from-files"]
-        )
-        page = browser.new_page()
-        page.set_content(html_content_resolved, wait_until="load")
-        pdf_bytes = page.pdf(
-            format="A4",
-            print_background=True,
-            prefer_css_page_size=True,
-            margin={"top": "0mm", "bottom": "0mm", "left": "0mm", "right": "0mm"}
-        )
-        browser.close()
+    html_content_resolved = render_zylk_report_html(patient_data)
 
-    return pdf_bytes
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox", "--allow-file-access-from-files"]
+            )
+            page = browser.new_page()
+            page.set_content(html_content_resolved, wait_until="load")
+            pdf_bytes = page.pdf(
+                format="A4",
+                print_background=True,
+                prefer_css_page_size=True,
+                margin={"top": "0mm", "bottom": "0mm", "left": "0mm", "right": "0mm"}
+            )
+            browser.close()
+        return pdf_bytes
+    except Exception:
+        # Browser launch failed or browser binary not downloaded in this environment
+        return None
+
 

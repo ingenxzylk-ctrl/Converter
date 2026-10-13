@@ -149,7 +149,8 @@ async def preview_branded_report(request: Request, data: str = Form(...)):
                 "metadata": metadata,
                 "tests": tests,
                 "flagged_tests": flagged_tests,
-                "tmap": tmap
+                "tmap": tmap,
+                "autoprint": request.query_params.get("autoprint") == "1"
             }
         )
     except Exception as e:
@@ -159,15 +160,15 @@ async def preview_branded_report(request: Request, data: str = Form(...)):
 @app.post("/api/export-pdf")
 async def export_branded_pdf(request: Request):
     """
-    Generate an official print-perfect PDF using headless Playwright (Chromium).
-    Enforces exact A4 margins, background graphics, and server-side rendering.
-    Supports both JSON and form data payloads.
+    Generate an official print-perfect PDF using headless Playwright (Chromium) when available.
+    If Playwright or Chromium is not installed in the environment (e.g. Vercel serverless),
+    gracefully returns the self-contained HTML for seamless high-fidelity browser Print to PDF.
     """
     import io
     import traceback
     import logging
-    from fastapi.responses import StreamingResponse
-    from export_service import generate_zylk_report_bytes
+    from fastapi.responses import StreamingResponse, JSONResponse
+    from export_service import generate_zylk_report_bytes, render_zylk_report_html
 
     logger = logging.getLogger("uvicorn.error")
 
@@ -184,18 +185,32 @@ async def export_branded_pdf(request: Request):
             payload = json.loads(body.decode("utf-8"))
 
         metadata = payload.get("metadata", {})
-
-        # Generate PDF using thread-safe Playwright runner
-        pdf_bytes = await asyncio.to_thread(generate_zylk_report_bytes, payload)
-
         patient_name = metadata.get("patient_name", "patient").strip()
         safe_name = re.sub(r'[^a-zA-Z0-9_\-]', '_', patient_name) or "report"
 
-        return StreamingResponse(
-            io.BytesIO(pdf_bytes),
-            media_type="application/pdf",
-            headers={
-                "Content-Disposition": f'attachment; filename="report_{safe_name}.pdf"'
+        # Attempt PDF generation via Playwright in thread pool
+        pdf_bytes = await asyncio.to_thread(generate_zylk_report_bytes, payload)
+
+        if pdf_bytes:
+            return StreamingResponse(
+                io.BytesIO(pdf_bytes),
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f'attachment; filename="report_{safe_name}.pdf"'
+                }
+            )
+
+        # Fallback: Playwright is not installed or Chromium browser cannot launch (e.g. Vercel / serverless).
+        # Render print-perfect self-contained HTML with inlined assets for client-side Print to PDF.
+        html_content = await asyncio.to_thread(render_zylk_report_html, payload)
+        return JSONResponse(
+            status_code=200,
+            content={
+                "fallback": "client_print",
+                "html": html_content,
+                "filename": f"Diagnostic_Report_{safe_name}.pdf",
+                "patient_name": patient_name,
+                "message": "Playwright is not installed in this environment. Seamlessly activating high-fidelity browser Print to PDF."
             }
         )
     except Exception as e:
