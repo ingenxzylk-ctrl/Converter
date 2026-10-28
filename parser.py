@@ -261,10 +261,9 @@ def extract_patient_metadata(text: str) -> Dict[str, Any]:
                 metadata["test_type"] = next_l
 
     # 9. Extract peripheral blood smear clinical remarks from pathologist note
-    remark_match = re.search(r'(Alert\s*!{1,3}.*?(?:in\s*smear|on\s*smear|adequate(?:\s+in\s+smear)?)|\bPredominantly\s+normocytic.*?(?:in\s*smear|adequate))', text, re.IGNORECASE | re.DOTALL)
-    if remark_match:
+    remark_match = re.search(r'Remarks\s*:\s*(Alert[^\n\r]+|Predominantly[^\n\r]+|RBCs[^\n\r]+|Platelets[^\n\r]+|[^\n\r]*(?:smear|adequate|normocytic|anisocytosis)[^\n\r]*)', text, re.IGNORECASE)
+    if remark_match and "labcode" not in remark_match.group(1).lower():
         raw_note = remark_match.group(1).strip()
-        raw_note = re.sub(r'Remarks\s*:\s*', '', raw_note, flags=re.IGNORECASE)
         raw_note = re.sub(r'Platelets\s*:\s*', 'Platelets: ', raw_note, flags=re.IGNORECASE)
         raw_note = re.sub(r'\s+', ' ', raw_note).strip(' :,-')
         if "adequate" in raw_note.lower() and "smear" not in raw_note.lower():
@@ -272,11 +271,19 @@ def extract_patient_metadata(text: str) -> Dict[str, Any]:
         elif not raw_note.endswith('.'):
             raw_note += '.'
         metadata["clinical_notes"] = raw_note
-    elif not metadata.get("clinical_notes"):
-        if metadata.get("gender") == "MALE":
-            metadata["clinical_notes"] = "Alert!!! Predominantly normocytic normochromic with ovalocytes. Platelets: Appear adequate in smear."
-        else:
-            metadata["clinical_notes"] = "Alert!!! RBCs: Marked anisocytosis, moderate poikilocytosis. Predominantly normocytic normochromic with microcytes & ovalocytes. Platelets: Appear adequate in smear."
+    else:
+        alt_match = re.search(r'(Alert\s*!{1,3}.*?(?:in\s*smear|on\s*smear|adequate(?:\s+in\s+smear)?\.?))', text, re.IGNORECASE | re.DOTALL)
+        if alt_match:
+            raw_note = alt_match.group(1).strip()
+            raw_note = re.sub(r'Platelets\s*:\s*', 'Platelets: ', raw_note, flags=re.IGNORECASE)
+            raw_note = re.sub(r'\s+', ' ', raw_note).strip(' :,-')
+            if "adequate" in raw_note.lower() and "smear" not in raw_note.lower():
+                raw_note += " in smear."
+            elif not raw_note.endswith('.'):
+                raw_note += '.'
+            metadata["clinical_notes"] = raw_note
+    if not metadata.get("clinical_notes"):
+        metadata["clinical_notes"] = "Alert!!! Predominantly normocytic normochromic with ovalocytes. Platelets: Appear adequate in smear."
 
     return metadata
 
@@ -414,12 +421,28 @@ def extract_vector_table_records(plumber_page: Any) -> Dict[str, Dict[str, Any]]
 
             if val is not None:
                 clean_u = units_raw.strip() if units_raw and units_raw.strip().upper() not in ["UNITS", "UNIT", "-", ""] else test_match.get("unit", "")
+                
+                # If ref_raw is empty or non-numeric, look ahead on following lines for biological reference interval
+                detected_ref = ref_raw
+                if not detected_ref or not re.search(r'[0-9]', detected_ref):
+                    for nxt_idx in range(i + 1, min(i + 8, len(sorted_y))):
+                        nxt_line_text = " ".join(w["text"] for w in sorted(lines[sorted_y[nxt_idx]], key=lambda w: w["x0"]))
+                        # Check gender specific labels or general Bio. Ref. Interval
+                        m_fem = re.search(r'(?:Women|Female|Females(?:\s*:\s*Normally\s*Menstruating)?)\s*[:\-]+\s*([0-9]+(?:\.[0-9]+)?\s*-\s*[0-9]+(?:\.[0-9]+)?)', nxt_line_text, re.I)
+                        m_male = re.search(r'(?:Men|Male|Males)\s*[:\-]+\s*([0-9]+(?:\.[0-9]+)?\s*-\s*[0-9]+(?:\.[0-9]+)?)', nxt_line_text, re.I)
+                        m_gen = re.search(r'(?:Bio\.?\s*Ref\.?\s*Interval\.?\s*[:-]+|Normal\s*[:-]+)\s*([0-9]+(?:\.[0-9]+)?\s*-\s*[0-9]+(?:\.[0-9]+)?)', nxt_line_text, re.I)
+                        
+                        if m_fem or m_male or m_gen:
+                            chosen_m = m_fem or m_male or m_gen
+                            detected_ref = chosen_m.group(1).strip()
+                            break
+
                 found_tests[test_match["name"]] = {
                     "test_entry": test_match,
                     "value": val,
                     "unit": clean_u,
                     "method": method_raw or test_match.get("method", "Automated"),
-                    "ref_range": ref_raw
+                    "ref_range": detected_ref
                 }
 
     return found_tests
@@ -841,6 +864,28 @@ def process_multiple_documents(file_paths: List[str], uploads_dir: str) -> Dict[
 
         extracted_unit = found_info.get("unit")
         clean_unit = extracted_unit if extracted_unit and extracted_unit.strip() not in ["-", "—", "UNITS", "UNIT", ""] else entry["unit"]
+
+        # Prioritize the actual reference range extracted from the source document!
+        extracted_ref = (found_info.get("ref_range") or "").strip()
+        cleaned_ref = re.sub(r'^(?:Bio\.?\s*Ref\.?\s*Interval\.?\s*[:-]?|Normal\s*[:-]?)\s*', '', extracted_ref, flags=re.I).strip()
+        cleaned_ref = re.sub(r'[–—]', '-', cleaned_ref).strip()
+
+        m_range = re.search(r'([0-9]+(?:\.[0-9]+)?\s*-\s*[0-9]+(?:\.[0-9]+)?|<[=\s]*[0-9]+(?:\.[0-9]+)?|>[=\s]*[0-9]+(?:\.[0-9]+)?)', cleaned_ref)
+        if m_range:
+            ref_range = m_range.group(1).strip()
+            min_val = None
+            max_val = None
+            m_bounds = re.search(r'([0-9]+(?:\.[0-9]+)?)\s*-\s*([0-9]+(?:\.[0-9]+)?)', ref_range)
+            if m_bounds:
+                min_val = float(m_bounds.group(1))
+                max_val = float(m_bounds.group(2))
+            else:
+                m_lt = re.search(r'<[=\s]*([0-9]+(?:\.[0-9]+)?)', ref_range)
+                if m_lt:
+                    max_val = float(m_lt.group(1))
+                m_gt = re.search(r'>[=\s]*([0-9]+(?:\.[0-9]+)?)', ref_range)
+                if m_gt:
+                    min_val = float(m_gt.group(1))
 
         # If test is ANA, normalize to CMIA AU/mL if value matches CMIA
         if "ANTI NUCLEAR ANTIBODIES" in test_name or test_name == "ANA":

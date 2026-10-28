@@ -72,10 +72,10 @@ BLOOD_TESTS_REGISTRY: List[Dict[str, Any]] = [
         "ref_range_male": "4.04 - 15.2",
         "min_val_male": 4.04,
         "max_val_male": 15.2,
-        "ref_range_female": "4.79 - 23.3",
-        "min_val_female": 4.79,
-        "max_val_female": 23.3,
-        "method": "E.C.L.I.A"
+        "ref_range_female": "2.8 - 29.2",
+        "min_val_female": 2.8,
+        "max_val_female": 29.2,
+        "method": "C.L.I.A"
     },
     {
         "category": "INFERTILITY",
@@ -120,9 +120,9 @@ BLOOD_TESTS_REGISTRY: List[Dict[str, Any]] = [
         "ref_range_male": "1.90 - 3.10",
         "min_val_male": 1.90,
         "max_val_male": 3.10,
-        "ref_range_female": "1.9 - 2.5",
-        "min_val_female": 1.9,
-        "max_val_female": 2.5,
+        "ref_range_female": "1.90 - 3.10",
+        "min_val_female": 1.90,
+        "max_val_female": 3.10,
         "method": "PHOTOMETRY"
     },
     {
@@ -297,10 +297,10 @@ BLOOD_TESTS_REGISTRY: List[Dict[str, Any]] = [
         "ref_range_male": "21.81 - 274.66",
         "min_val_male": 21.81,
         "max_val_male": 274.66,
-        "ref_range_female": "4.63 - 204.00",
-        "min_val_female": 4.63,
-        "max_val_female": 204.00,
-        "method": "C.M.I.A"
+        "ref_range_female": "10 - 291",
+        "min_val_female": 10.0,
+        "max_val_female": 291.0,
+        "method": "C.L.I.A"
     },
 
     # 7. ELEMENTS
@@ -357,9 +357,9 @@ BLOOD_TESTS_REGISTRY: List[Dict[str, Any]] = [
         "ref_range_male": "8.8 - 10.6",
         "min_val_male": 8.8,
         "max_val_male": 10.6,
-        "ref_range_female": "8.6 - 10.3",
-        "min_val_female": 8.6,
-        "max_val_female": 10.3,
+        "ref_range_female": "8.8 - 10.6",
+        "min_val_female": 8.8,
+        "max_val_female": 10.6,
         "method": "PHOTOMETRY"
     },
 
