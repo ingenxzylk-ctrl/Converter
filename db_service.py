@@ -6,19 +6,25 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+DEFAULT_SUPABASE_URL = "https://kpjxzhclrcpmnoiiyarr.supabase.co"
+DEFAULT_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtwanh6aGNscmNwbW5vaWl5YXJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA2NzAxNzQsImV4cCI6MjEwNjI0NjE3NH0.JscjB_kfpbrrKhI77luLrq1Hqg-YhRoll8ijGVEYmgg"
+
+SUPABASE_URL = (os.getenv("SUPABASE_URL") or DEFAULT_SUPABASE_URL).strip('"\'')
+SUPABASE_KEY = (os.getenv("SUPABASE_KEY") or DEFAULT_SUPABASE_KEY).strip('"\'')
 
 _supabase_client: Optional[Client] = None
 
 def get_supabase() -> Optional[Client]:
     """Initialize and return cached Supabase client singleton."""
     global _supabase_client
-    if _supabase_client is None and SUPABASE_URL and SUPABASE_KEY:
-        try:
-            _supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
-        except Exception as e:
-            print(f"[Supabase Init Error] {e}")
+    if _supabase_client is None:
+        url = (os.getenv("SUPABASE_URL") or DEFAULT_SUPABASE_URL).strip('"\'')
+        key = (os.getenv("SUPABASE_KEY") or DEFAULT_SUPABASE_KEY).strip('"\'')
+        if url and key:
+            try:
+                _supabase_client = create_client(url, key)
+            except Exception as e:
+                print(f"[Supabase Init Error] {e}")
     return _supabase_client
 
 
@@ -36,10 +42,12 @@ def save_report_to_supabase(data: Dict[str, Any]) -> Dict[str, Any]:
     tests = data.get("tests", [])
 
     # 1. Determine Gender cleanly
-    raw_gender = (metadata.get("gender") or "").upper()
+    raw_gender = (metadata.get("gender") or "").upper().strip()
     test_type = (metadata.get("test_type") or "").upper()
 
-    if "MALE" in raw_gender or "MEN" in test_type:
+    if "FEMALE" in raw_gender or "WOMEN" in test_type or "WOMAN" in test_type:
+        gender = "FEMALE"
+    elif "MALE" in raw_gender or "MEN" in test_type:
         gender = "MALE"
     else:
         gender = "FEMALE"
